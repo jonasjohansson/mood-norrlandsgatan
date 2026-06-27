@@ -30,7 +30,20 @@ def circumR(a, b, c):
 def length(pts):
     return sum(math.dist(pts[i], pts[i+1]) for i in range(len(pts)-1))
 
-def n_pieces(pts):                       # split where a bend is too tight
+def resample_d(pts, d=25.0):             # fixed-spacing resample (stable curvature)
+    if len(pts) < 2: return list(pts)
+    cum = [0.0]
+    for i in range(1, len(pts)): cum.append(cum[-1] + math.dist(pts[i], pts[i-1]))
+    L = cum[-1] or 1.0; n = max(2, int(L / d)); out = []; j = 0
+    for i in range(n + 1):
+        t = L*i/n
+        while j < len(pts)-2 and cum[j+1] < t: j += 1
+        f = (t-cum[j])/((cum[j+1]-cum[j]) or 1)
+        out.append((pts[j][0]+(pts[j+1][0]-pts[j][0])*f, pts[j][1]+(pts[j+1][1]-pts[j][1])*f))
+    return out
+
+def n_pieces(raw):                       # split where a bend is genuinely too tight
+    pts = resample_d(raw)                # measure at ~25 mm, not at noisy dense spacing
     rs = [math.inf] + [circumR(pts[i-1],pts[i],pts[i+1]) for i in range(1,len(pts)-1)] + [math.inf]
     pieces, cur = 0, 0
     for r in rs:

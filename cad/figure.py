@@ -67,6 +67,28 @@ def col_centers(s):
     return [(cx * s, cy * s) for cx, cy, _ in COLS]
 
 
+def thin(pts, step=80.0):
+    """Resample a dense path to ~step-mm spacing so the neon spline/trace is
+    OCC-friendly (hundreds of points make trace() fail)."""
+    if len(pts) < 3:
+        return pts
+    import math
+    cum = [0.0]
+    for i in range(1, len(pts)):
+        cum.append(cum[-1] + math.dist(pts[i], pts[i - 1]))
+    L = cum[-1] or 1.0
+    n = max(3, int(L / step))
+    out = []; j = 0
+    for i in range(n + 1):
+        t = L * i / n
+        while j < len(pts) - 2 and cum[j + 1] < t:
+            j += 1
+        f = (t - cum[j]) / ((cum[j + 1] - cum[j]) or 1)
+        out.append((pts[j][0] + (pts[j + 1][0] - pts[j][0]) * f,
+                    pts[j][1] + (pts[j + 1][1] - pts[j][1]) * f))
+    return out
+
+
 def build():
     bodies, s = load_bodies()
     cols = col_centers(s)
@@ -90,14 +112,19 @@ def build():
                          kind="host", group="host", orbit=[0, 0],
                          pos=[0, 0, 0], rot=[0, 0, 0]))
 
-    # --- neon bodies (emissive, animated, orbiting nearest column) ---
+    # --- neon bodies (emissive, orbiting nearest column) ---
     for name, kind, pts, color in bodies:
         k, p = scaled(kind, pts, s)
         cx = sum(q[0] for q in p) / len(p)
         cy = sum(q[1] for q in p) / len(p)
         orbit = min(cols, key=lambda c: (c[0] - cx) ** 2 + (c[1] - cy) ** 2) if cols else [0, 0]
         f = f"{name}_neon.stl"
-        export_stl(neon(path_line(k, p), P), str(OUT / f))
+        line_pts = thin(p) if k == "spline" else p
+        try:
+            export_stl(neon(path_line(k, line_pts), P), str(OUT / f))
+        except Exception as e:
+            print(f"  ! skipped {name}: {type(e).__name__} (path too tight/self-intersecting)")
+            continue
         manifest.append(dict(name=name, file=f, color=color, kind="neon",
                              group=name, orbit=list(orbit), pos=[0, 0, 0], rot=[0, 0, 0]))
 
