@@ -10,7 +10,7 @@ stylised placeholders below are used. Paths are in mm, centred on the canopy.
 import json
 from pathlib import Path
 from build123d import (
-    BuildSketch, RectangleRounded, Box, Align, Pos,
+    BuildSketch, RectangleRounded, Rectangle, Circle, Box, Align, Pos, Locations,
     extrude, export_stl, export_step,
 )
 from channel import HostParams, path_line, groove, neon, bracket
@@ -18,6 +18,7 @@ from channel import HostParams, path_line, groove, neon, bracket
 HERE = Path(__file__).parent
 OUT = HERE / "out"
 OUT.mkdir(exist_ok=True)
+CEIL = HERE / "ceiling.json"   # real soffit footprint (from ceiling_import.py)
 
 P = HostParams()
 
@@ -90,22 +91,33 @@ def thin(pts, step=80.0):
 
 
 def build():
+    global MW, MH
     bodies, s = load_bodies()
-    cols = col_centers(s)
     manifest = []
 
-    # --- glossy host: panel + brackets ---
-    # NB: the snap-groove is a fab detail (invisible at canopy scale) and the
-    # boolean-cut of every body path across the full 9x5 m panel is pathologically
-    # slow/unstable in OCC. The real grooved cross-section lives in calibrate.py's
-    # coupon (channel.coupon), where you verify the snap fit. The neon paths here
-    # double as the groove centrelines (= the router toolpath / DXF) for the shop.
-    with BuildSketch() as sk:
-        RectangleRounded(MW, MH, 250)
-    host = extrude(sk.sketch, amount=P.panel_t)
-    for by in PROFILE_YS:
-        for bx in BRACKET_XS:
-            host += bracket(bx, by, P)
+    # --- glossy host + columns: real soffit footprint if ceiling.json exists ---
+    if CEIL.exists():
+        d = json.loads(CEIL.read_text()); cs = d["cell_mm"]
+        MW, MH = d["w_mm"], d["h_mm"]
+        cols = [tuple(c["c"]) for c in d["columns"]]
+        print(f"using ceiling footprint: {len(d['cells'])} tiles, {len(cols)} columns, "
+              f"{MW/1000:.1f}x{MH/1000:.1f} m")
+        with BuildSketch() as sk:
+            with Locations(*[(x, y) for x, y in d["cells"]]):
+                Rectangle(cs, cs)
+        host = extrude(sk.sketch, amount=P.panel_t)
+        for col in d["columns"]:
+            with BuildSketch(Pos(col["c"][0], col["c"][1], 0)) as h:
+                Circle(col["r"])
+            host -= extrude(h.sketch, amount=P.panel_t)
+    else:
+        cols = col_centers(s)
+        with BuildSketch() as sk:
+            RectangleRounded(MW, MH, 250)
+        host = extrude(sk.sketch, amount=P.panel_t)
+        for by in PROFILE_YS:
+            for bx in BRACKET_XS:
+                host += bracket(bx, by, P)
     export_stl(host, str(OUT / "host.stl"))
     export_step(host, str(OUT / "host.step"))
     manifest.append(dict(name="host", file="host.stl", color="#15171c",
