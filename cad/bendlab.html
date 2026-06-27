@@ -36,11 +36,14 @@
   <input id="minr" type="range" min="40" max="300" value="90">
   <label class="f">View width: <b id="vwv">3.0</b> m</label>
   <input id="vieww" type="range" min="0.5" max="14" step="0.1" value="3">
-  <label class="f" id="figrow" style="display:none">Figure width: <b id="fwv">2.5</b> m</label>
-  <input id="figw" type="range" min="0.3" max="9" step="0.1" value="2.5" style="display:none">
+  <label class="f" id="figrow" style="display:none">Figure width: <b id="fwv">2.2</b> m</label>
+  <input id="figw" type="range" min="0.3" max="9" step="0.1" value="2.2" style="display:none">
+  <label class="f" id="rotrow" style="display:none">Rotate: <b id="rotv">0</b>°</label>
+  <input id="rot" type="range" min="-180" max="180" value="0" style="display:none">
 
   <div class="row">
     <button id="m-edit" class="on">Edit</button>
+    <button id="m-move">Move</button>
     <button id="m-draw">Draw</button>
     <button id="load">Load…</button>
   </div>
@@ -65,8 +68,8 @@
 const cv=document.getElementById("c"), ctx=cv.getContext("2d");
 const DPR=Math.min(devicePixelRatio||1,2);
 let strokes=[];          // {anchors:[[mmx,mmy]], loaded}
-let minR=90, viewW=3000, figW=2500, segment=false, mode="edit", smooth=0;
-let drag=null, freehand=null;
+let minR=90, viewW=3000, figW=2200, segment=false, mode="edit", smooth=0;
+let drag=null, freehand=null, ceiling=null, prevRot=0, moveLast=null;
 function targetN(s){ const full=Math.max(4,Math.min(70,Math.round(plen(s.base)/40))); return Math.max(3,Math.round(full*(1-smooth*0.0092))); }
 
 function resize(){ cv.width=innerWidth*DPR; cv.height=innerHeight*DPR;
@@ -112,11 +115,27 @@ function poly(pts,col,w){ if(pts.length<2)return; ctx.strokeStyle=col; ctx.lineW
   ctx.beginPath(); const A=W2S(...pts[0]); ctx.moveTo(A[0],A[1]);
   for(let i=1;i<pts.length;i++){const P=W2S(...pts[i]); ctx.lineTo(P[0],P[1]);} ctx.stroke(); }
 
+function transformLoaded(fn){ for(const s of strokes) if(s.loaded){ s.anchors=s.anchors.map(fn); if(s.base) s.base=s.base.map(fn); } }
+function loadedCentroid(){ let n=0,sx=0,sy=0; for(const s of strokes) if(s.loaded) for(const a of s.anchors){sx+=a[0];sy+=a[1];n++;} return n?[sx/n,sy/n]:[0,0]; }
+function drawBackdrop(){
+  if(!ceiling) return;
+  const cs=ceiling.cell_mm/mmPerPx();
+  ctx.strokeStyle="rgba(110,125,145,.55)"; ctx.lineWidth=1*DPR;
+  for(const [x,y] of ceiling.cells){ const P=W2S(x,y); ctx.strokeRect(P[0]-cs/2,P[1]-cs/2,cs,cs); }
+  for(const col of ceiling.columns){ const P=W2S(col.c[0],col.c[1]);
+    ctx.fillStyle="rgba(60,255,150,.30)"; ctx.beginPath(); ctx.arc(P[0],P[1],col.r/mmPerPx(),0,7); ctx.fill(); }
+}
+fetch("ceiling.json").then(r=>r.ok?r.json():null).then(d=>{ ceiling=d;
+  if(d){ viewW=Math.max(d.w_mm,d.h_mm)*1.15; const v=document.getElementById("vieww");
+    v.value=viewW/1000; document.getElementById("vwv").textContent=(viewW/1000).toFixed(1); }
+  draw(); }).catch(()=>{});
+
 function draw(){
   ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle="#f3f5f8"; ctx.fillRect(0,0,cv.width,cv.height);
   const g=500/mmPerPx(); ctx.strokeStyle="rgba(90,110,140,.10)"; ctx.lineWidth=1*DPR;
   for(let x=cv.width/2%g;x<cv.width;x+=g){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cv.height);ctx.stroke();}
   for(let y=cv.height/2%g;y<cv.height;y+=g){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cv.width,y);ctx.stroke();}
+  drawBackdrop();
   ctx.lineCap="round"; ctx.lineJoin="round";
 
   let minMM=Infinity, bad=0, tot=0, lenMM=0, npieces=0;
@@ -164,6 +183,7 @@ function nearestSeg(world){           // for inserting an anchor
 }
 
 cv.addEventListener("pointerdown", e=>{
+  if(mode==="move"){ moveLast=S2W(e.clientX,e.clientY); cv.setPointerCapture(e.pointerId); return; }
   if(mode==="edit"){
     if(e.altKey || e.button===2){ const h=pickAnchor(e.clientX,e.clientY); if(h&&strokes[h.si].anchors.length>2){ strokes[h.si].anchors.splice(h.ai,1); draw(); } return; }
     const h=pickAnchor(e.clientX,e.clientY); if(h){ drag=h; cv.setPointerCapture(e.pointerId); }
@@ -173,6 +193,8 @@ cv.addEventListener("pointerdown", e=>{
 });
 let lastT=0;
 cv.addEventListener("pointermove", e=>{
+  if(mode==="move"&&moveLast){ const w=S2W(e.clientX,e.clientY);
+    transformLoaded(([x,y])=>[x+w[0]-moveLast[0], y+w[1]-moveLast[1]]); moveLast=w; draw(); return; }
   if(drag){ strokes[drag.si].anchors[drag.ai]=S2W(e.clientX,e.clientY); draw(); return; }
   if(freehand){ const now=performance.now(); if(now-lastT<16) return; lastT=now;
     const w=S2W(e.clientX,e.clientY), last=freehand.raw[freehand.raw.length-1];
@@ -180,7 +202,7 @@ cv.addEventListener("pointermove", e=>{
 });
 cv.addEventListener("pointerup", ()=>{
   if(freehand){ if(freehand.raw.length>=2){ const st={loaded:false, base:freehand.raw, anchors:[]}; st.anchors=resample(freehand.raw, targetN(st)); strokes.push(st); } freehand=null; draw(); }
-  drag=null;
+  drag=null; moveLast=null;
 });
 cv.addEventListener("contextmenu", e=>e.preventDefault());
 cv.addEventListener("dblclick", e=>{ if(mode!=="edit") return; const ns=nearestSeg(S2W(e.clientX,e.clientY)); if(ns){ strokes[ns.si].anchors.splice(ns.ai,0,ns.pt); draw(); } });
@@ -198,7 +220,8 @@ function loadSvgText(txt){
   strokes=strokes.filter(x=>!x.loaded);
   for(const pts of raw){ const mm=pts.map(([x,y])=>[(x-cx)*s,(cy-y)*s]);
     const st={loaded:true, base:mm, anchors:[]}; st.anchors=resample(mm, targetN(st)); strokes.push(st); }
-  document.getElementById("figrow").style.display="block"; document.getElementById("figw").style.display="block";
+  for(const id of ["figrow","figw","rotrow","rot"]) document.getElementById(id).style.display="block";
+  prevRot=0; document.getElementById("rot").value=0; document.getElementById("rotv").textContent="0";
   draw();
 }
 
@@ -225,16 +248,21 @@ const $=id=>document.getElementById(id);
 $("minr").oninput=e=>{minR=+e.target.value;$("mrv").textContent=minR;draw();};
 $("vieww").oninput=e=>{viewW=+e.target.value*1000;$("vwv").textContent=(+e.target.value).toFixed(1);draw();};
 $("figw").oninput=e=>{ const nw=+e.target.value*1000, r=nw/figW; figW=nw; $("fwv").textContent=(+e.target.value).toFixed(1);
-  strokes.forEach(s=>{ if(s.loaded){ s.base=s.base.map(([x,y])=>[x*r,y*r]); s.anchors=s.anchors.map(([x,y])=>[x*r,y*r]); } }); draw(); };
-$("m-edit").onclick=()=>{mode="edit";$("m-edit").classList.add("on");$("m-draw").classList.remove("on");draw();};
-$("m-draw").onclick=()=>{mode="draw";$("m-draw").classList.add("on");$("m-edit").classList.remove("on");draw();};
+  const [cx,cy]=loadedCentroid(); transformLoaded(([x,y])=>[cx+(x-cx)*r, cy+(y-cy)*r]); draw(); };
+function setMode(m){ mode=m; for(const id of ["m-edit","m-move","m-draw"]) $(id).classList.toggle("on", id==="m-"+m); draw(); }
+$("m-edit").onclick=()=>setMode("edit");
+$("m-move").onclick=()=>setMode("move");
+$("m-draw").onclick=()=>setMode("draw");
+$("rot").oninput=e=>{ const r=+e.target.value, d=(r-prevRot)*Math.PI/180; prevRot=r; $("rotv").textContent=r;
+  const [cx,cy]=loadedCentroid(), ca=Math.cos(d), sa=Math.sin(d);
+  transformLoaded(([x,y])=>{const dx=x-cx,dy=y-cy;return [cx+dx*ca-dy*sa, cy+dx*sa+dy*ca];}); draw(); };
 $("load").onclick=()=>$("file").click();
 $("file").onchange=e=>{const f=e.target.files[0]; if(f) f.text().then(loadSvgText);};
 $("smooth").oninput=e=>{ smooth=+e.target.value; $("smv").textContent=smooth;
   strokes.forEach(s=>{ if(s.base) s.anchors=resample(s.base, targetN(s)); }); draw(); };
 $("seg").onchange=e=>{segment=e.target.checked;draw();};
 $("undo").onclick=()=>{ strokes.pop(); draw(); };
-$("clear").onclick=()=>{ strokes=[]; $("figrow").style.display="none"; $("figw").style.display="none"; draw(); };
+$("clear").onclick=()=>{ strokes=[]; for(const id of ["figrow","figw","rotrow","rot"]) $(id).style.display="none"; draw(); };
 $("export").onclick=exportFiles;
 resize();
 </script>
