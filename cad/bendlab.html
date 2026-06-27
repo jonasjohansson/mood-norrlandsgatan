@@ -3,28 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bend Lab — LED-flex bend tester</title>
+<title>Bend Lab — shape & bend editor</title>
 <style>
-  :root { --panel:#fff; --ink:#1b2027; --muted:#5b6470; --line:#d6dce3; }
+  :root { --line:#d6dce3; --muted:#5b6470; }
   * { box-sizing:border-box; }
-  html,body { margin:0; height:100%; background:#f3f5f8; color:var(--ink);
+  html,body { margin:0; height:100%; background:#f3f5f8; color:#1b2027;
     font:13px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; overflow:hidden; }
-  #c { position:fixed; inset:0; display:block; cursor:crosshair; }
-  #ui { position:fixed; top:14px; left:14px; width:250px; background:rgba(255,255,255,.94);
+  #c { position:fixed; inset:0; display:block; touch-action:none; }
+  #ui { position:fixed; top:14px; left:14px; width:252px; background:rgba(255,255,255,.94);
     border:1px solid var(--line); border-radius:12px; padding:14px; box-shadow:0 8px 24px rgba(30,40,60,.12); }
-  h1 { font-size:13px; margin:0 0 2px; } .sub { color:var(--muted); margin:0 0 12px; font-size:11px; }
-  label.f { display:block; color:var(--muted); font-size:11px; margin:10px 0 3px; }
+  h1 { font-size:13px; margin:0 0 2px; } .sub { color:var(--muted); margin:0 0 10px; font-size:11px; }
+  label.f { display:block; color:var(--muted); font-size:11px; margin:9px 0 3px; }
   input[type=range] { width:100%; accent-color:#1aaf5d; }
-  input[type=number] { width:70px; }
-  .row { display:flex; gap:6px; margin-top:10px; }
-  button { flex:1; background:#eef1f5; color:var(--ink); border:1px solid var(--line);
-    border-radius:8px; padding:7px 6px; cursor:pointer; font:inherit; } button:hover { border-color:#aab4c0; }
+  .row { display:flex; gap:6px; margin-top:8px; }
+  button { flex:1; background:#eef1f5; border:1px solid var(--line); border-radius:8px;
+    padding:7px 4px; cursor:pointer; font:inherit; } button:hover { border-color:#aab4c0; }
   button.on { background:#e3f6ea; border-color:#1aaf5d; }
-  .stat { margin-top:12px; padding-top:10px; border-top:1px solid var(--line); font-size:12px; }
-  .stat b { font-variant-numeric:tabular-nums; }
-  .big { font-size:15px; }
-  .ok { color:#138a47; } .bad { color:#c0392b; }
-  .hint { color:var(--muted); font-size:11px; margin-top:10px; }
+  label.chk { display:flex; align-items:center; gap:7px; margin-top:10px; color:var(--muted); cursor:pointer; }
+  .stat { margin-top:11px; padding-top:9px; border-top:1px solid var(--line); font-size:12px; }
+  .big { font-size:15px; } .ok { color:#138a47; } .bad { color:#c0392b; }
+  .hint { color:var(--muted); font-size:11px; margin-top:9px; }
 </style>
 </head>
 <body>
@@ -32,180 +30,208 @@
 <div id="holder" style="position:absolute;opacity:0;pointer-events:none;left:-9999px"></div>
 <div id="ui">
   <h1>Bend Lab</h1>
-  <p class="sub">can the LED flex make this bend?</p>
+  <p class="sub">adjust the shape until it's all green</p>
 
   <label class="f">Min bend radius: <b id="mrv">150</b> mm</label>
   <input id="minr" type="range" min="40" max="300" value="150">
-
   <label class="f">View width: <b id="vwv">3.0</b> m</label>
-  <input id="vieww" type="range" min="0.5" max="12" step="0.1" value="3">
-
-  <div class="row">
-    <button id="m-draw" class="on">Draw</button>
-    <button id="m-load">Load SVG…</button>
-  </div>
-  <input id="file" type="file" accept=".svg" style="display:none">
-
+  <input id="vieww" type="range" min="0.5" max="14" step="0.1" value="3">
   <label class="f" id="figrow" style="display:none">Figure width: <b id="fwv">2.5</b> m</label>
   <input id="figw" type="range" min="0.3" max="9" step="0.1" value="2.5" style="display:none">
 
-  <label class="f" style="display:flex;align-items:center;gap:7px;margin-top:12px">
-    <input type="checkbox" id="seg"> break at tight bends → separate pieces</label>
-
-  <div class="row"><button id="undo">Undo</button><button id="clear">Clear</button></div>
+  <div class="row">
+    <button id="m-edit" class="on">Edit</button>
+    <button id="m-draw">Draw</button>
+    <button id="load">Load…</button>
+  </div>
+  <input id="file" type="file" accept=".svg" style="display:none">
+  <div class="row">
+    <button id="simplify">Simplify</button>
+    <button id="undo">Undo</button>
+    <button id="clear">Clear</button>
+  </div>
+  <label class="chk"><input type="checkbox" id="seg"> break at tight bends → pieces</label>
+  <div class="row"><button id="export">Export SVG + JSON</button></div>
 
   <div class="stat">
     tightest bend: <b id="tight" class="big">–</b><br>
-    <span id="line2">too tight: <b id="pct">–</b></span> · length: <b id="len">–</b>
+    <span id="line2">too tight: <b>–</b></span> · length: <b id="len">–</b>
   </div>
-  <div class="hint">Drag to draw a bend. Red = tighter than the flex can go. The dashed
-    ring (bottom-right) is the min radius at this zoom. Load an SVG and scale it to find
-    the size where it turns all-green.</div>
+  <div class="hint">Edit: drag dots to reshape · double-click a line to add · Alt/right-click a dot to delete.
+    Simplify strips detail. The dashed ring = min radius.</div>
 </div>
 <script>
 const cv=document.getElementById("c"), ctx=cv.getContext("2d");
 const DPR=Math.min(devicePixelRatio||1,2);
-let strokes=[];          // each: {pts:[[mmx,mmy]], loaded:bool}
-let drawing=null, mode="draw";
-let minR=150, viewW=3000, figW=2500; // mm
-let segment=false;
-let loadedRaw=null;      // sampled figure in mm (centered), array of point-arrays
+let strokes=[];          // {anchors:[[mmx,mmy]], loaded}
+let minR=150, viewW=3000, figW=2500, segment=false, mode="edit";
+let drag=null, freehand=null;
 
 function resize(){ cv.width=innerWidth*DPR; cv.height=innerHeight*DPR;
   cv.style.width=innerWidth+"px"; cv.style.height=innerHeight+"px"; draw(); }
 addEventListener("resize", resize);
+const mmPerPx=()=>viewW/cv.width;
+const W2S=(mx,my)=>[cv.width/2+mx/mmPerPx(), cv.height/2-my/mmPerPx()];
+const S2W=(sx,sy)=>[(sx*DPR-cv.width/2)*mmPerPx(), -(sy*DPR-cv.height/2)*mmPerPx()];
 
-function mmPerPx(){ return viewW / cv.width; }          // device px
-const W2S = (mx,my)=>[cv.width/2 + mx/mmPerPx(), cv.height/2 - my/mmPerPx()];
-const S2W = (sx,sy)=>[(sx*DPR - cv.width/2)*mmPerPx(), -(sy*DPR - cv.height/2)*mmPerPx()];
-
-function circumR(a,b,c){
-  const A=Math.abs((b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]))/2;
-  if(A<1e-6) return Infinity;
-  const la=Math.hypot(b[0]-c[0],b[1]-c[1]), lb=Math.hypot(a[0]-c[0],a[1]-c[1]), lc=Math.hypot(a[0]-b[0],a[1]-b[1]);
-  return (la*lb*lc)/(4*A);
-}
-function radii(pts){
-  const r=[Infinity];
-  for(let i=1;i<pts.length-1;i++) r.push(circumR(pts[i-1],pts[i],pts[i+1]));
-  r.push(Infinity); return r;
-}
-
-function polyline(pts,col,w){
-  if(pts.length<2) return;
-  ctx.strokeStyle=col; ctx.lineWidth=w*DPR; ctx.beginPath();
-  const A=W2S(...pts[0]); ctx.moveTo(A[0],A[1]);
-  for(let i=1;i<pts.length;i++){ const P=W2S(...pts[i]); ctx.lineTo(P[0],P[1]); } ctx.stroke();
-}
-function splitPieces(pts,rs){            // break wherever too tight -> bendable pieces
-  const out=[]; let cur=[];
-  for(let i=0;i<pts.length;i++){
-    if(rs[i]<minR){ if(cur.length>1) out.push(cur); cur=[]; }
-    else cur.push(pts[i]);
+// ---- geometry ----
+function catmull(A, per=14){
+  if(A.length<3) return A.slice();
+  const out=[];
+  for(let i=0;i<A.length-1;i++){
+    const p0=A[i-1]||A[i],p1=A[i],p2=A[i+1],p3=A[i+2]||A[i+1];
+    for(let k=0;k<=per;k++){ const t=k/per,t2=t*t,t3=t2*t;
+      out.push([
+        0.5*(2*p1[0]+(-p0[0]+p2[0])*t+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3),
+        0.5*(2*p1[1]+(-p0[1]+p2[1])*t+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3)]);
+    }
   }
-  if(cur.length>1) out.push(cur);
   return out;
 }
+function resample(pts, N){
+  if(pts.length<2) return pts.slice();
+  const cum=[0]; for(let i=1;i<pts.length;i++) cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
+  const L=cum[cum.length-1]||1; const out=[]; let j=0;
+  for(let i=0;i<N;i++){ const d=L*i/(N-1); while(j<cum.length-1&&cum[j+1]<d) j++;
+    const t=(d-cum[j])/((cum[j+1]-cum[j])||1);
+    out.push([pts[j][0]+(pts[j+1][0]-pts[j][0])*t, pts[j][1]+(pts[j+1][1]-pts[j][1])*t]); }
+  return out;
+}
+function circumR(a,b,c){
+  const A=Math.abs((b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]))/2; if(A<1e-6) return Infinity;
+  return (Math.hypot(b[0]-c[0],b[1]-c[1])*Math.hypot(a[0]-c[0],a[1]-c[1])*Math.hypot(a[0]-b[0],a[1]-b[1]))/(4*A);
+}
+function radii(pts){ const r=[Infinity]; for(let i=1;i<pts.length-1;i++) r.push(circumR(pts[i-1],pts[i],pts[i+1])); r.push(Infinity); return r; }
 function plen(pts){ let L=0; for(let i=0;i<pts.length-1;i++) L+=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1]); return L; }
+function splitPieces(pts,rs){ const out=[]; let cur=[]; for(let i=0;i<pts.length;i++){ if(rs[i]<minR){ if(cur.length>1) out.push(cur); cur=[]; } else cur.push(pts[i]); } if(cur.length>1) out.push(cur); return out; }
+
+function poly(pts,col,w){ if(pts.length<2)return; ctx.strokeStyle=col; ctx.lineWidth=w*DPR;
+  ctx.beginPath(); const A=W2S(...pts[0]); ctx.moveTo(A[0],A[1]);
+  for(let i=1;i<pts.length;i++){const P=W2S(...pts[i]); ctx.lineTo(P[0],P[1]);} ctx.stroke(); }
 
 function draw(){
   ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle="#f3f5f8"; ctx.fillRect(0,0,cv.width,cv.height);
   const g=500/mmPerPx(); ctx.strokeStyle="rgba(90,110,140,.10)"; ctx.lineWidth=1*DPR;
-  for(let x=cv.width/2%g; x<cv.width; x+=g){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,cv.height); ctx.stroke(); }
-  for(let y=cv.height/2%g; y<cv.height; y+=g){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(cv.width,y); ctx.stroke(); }
-
-  const all=strokes.concat(drawing?[drawing]:[]);
-  let minMM=Infinity, bad=0, tot=0, lenMM=0, npieces=0;
+  for(let x=cv.width/2%g;x<cv.width;x+=g){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cv.height);ctx.stroke();}
+  for(let y=cv.height/2%g;y<cv.height;y+=g){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cv.width,y);ctx.stroke();}
   ctx.lineCap="round"; ctx.lineJoin="round";
-  for(const s of all){
-    if(s.pts.length<2) continue;
-    const rs=radii(s.pts);
+
+  let minMM=Infinity, bad=0, tot=0, lenMM=0, npieces=0;
+  const live = strokes.concat(freehand?[freehand]:[]);
+  for(const s of live){
+    const A=s.anchors; if(A.length<2) continue;
+    const pts=catmull(A); const rs=radii(pts);
     for(let i=1;i<rs.length-1;i++){ tot++; if(rs[i]<minR) bad++; if(rs[i]<minMM) minMM=rs[i]; }
     if(segment){
-      const pcs=splitPieces(s.pts,rs); npieces+=pcs.length;
-      for(const pc of pcs){ polyline(pc,"#1aaf5d",5); lenMM+=plen(pc); }
-      for(let i=0;i<s.pts.length;i++) if(rs[i]<minR){           // break markers
-        const P=W2S(...s.pts[i]); ctx.fillStyle="#e6194b";
-        ctx.beginPath(); ctx.arc(P[0],P[1],3*DPR,0,7); ctx.fill();
-      }
+      const pcs=splitPieces(pts,rs); npieces+=pcs.length;
+      for(const pc of pcs){ poly(pc,"#1aaf5d",5); lenMM+=plen(pc); }
+      for(let i=0;i<pts.length;i++) if(rs[i]<minR){ const P=W2S(...pts[i]); ctx.fillStyle="#e6194b"; ctx.beginPath(); ctx.arc(P[0],P[1],3*DPR,0,7); ctx.fill(); }
     } else {
-      for(let i=0;i<s.pts.length-1;i++){
-        const tooTight=Math.min(rs[i],rs[i+1])<minR;
-        polyline([s.pts[i],s.pts[i+1]], tooTight?"#e6194b":"#1aaf5d", tooTight?7:5);
-      }
-      lenMM+=plen(s.pts);
+      for(let i=0;i<pts.length-1;i++){ const tt=Math.min(rs[i],rs[i+1])<minR; poly([pts[i],pts[i+1]], tt?"#e6194b":"#1aaf5d", tt?7:5); }
+      lenMM+=plen(pts);
+    }
+    if(mode==="edit"){                       // anchor handles
+      for(const a of A){ const P=W2S(...a); ctx.fillStyle="#fff"; ctx.strokeStyle="#2b6bff"; ctx.lineWidth=2*DPR;
+        ctx.beginPath(); ctx.arc(P[0],P[1],5*DPR,0,7); ctx.fill(); ctx.stroke(); }
     }
   }
-  // min-radius reference ring
   const rpx=minR/mmPerPx(), cx=cv.width-rpx-30*DPR, cy=cv.height-rpx-30*DPR;
   ctx.setLineDash([6*DPR,5*DPR]); ctx.strokeStyle="#5b6470"; ctx.lineWidth=1.5*DPR;
   ctx.beginPath(); ctx.arc(cx,cy,rpx,0,7); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle="#5b6470"; ctx.font=`${12*DPR}px ui-sans-serif`; ctx.textAlign="center";
-  ctx.fillText(`min ${minR}mm`, cx, cy+4*DPR);
+  ctx.fillStyle="#5b6470"; ctx.font=`${12*DPR}px ui-sans-serif`; ctx.textAlign="center"; ctx.fillText(`min ${minR}mm`,cx,cy+4*DPR);
 
   const t=document.getElementById("tight");
   if(minMM===Infinity){ t.textContent="–"; t.className="big"; }
   else { t.textContent=Math.round(minMM)+" mm"; t.className="big "+(minMM>=minR?"ok":"bad"); }
-  document.getElementById("line2").innerHTML = segment
-    ? `pieces: <b>${npieces||"–"}</b>` : `too tight: <b>${tot?Math.round(100*bad/tot)+"%":"–"}</b>`;
-  document.getElementById("len").textContent = lenMM? (lenMM/1000).toFixed(1)+" m" : "–";
+  document.getElementById("line2").innerHTML = segment ? `pieces: <b>${npieces||"–"}</b>` : `too tight: <b>${tot?Math.round(100*bad/tot)+"%":"–"}</b>`;
+  document.getElementById("len").textContent = lenMM? (lenMM/1000).toFixed(1)+" m":"–";
 }
 
-// ---- drawing ----
-let lastT=0;
+// ---- hit test ----
+function pickAnchor(sx,sy){
+  const dev=[sx*DPR,sy*DPR]; let best=null,bd=12*DPR;
+  strokes.forEach((s,si)=>s.anchors.forEach((a,ai)=>{ const P=W2S(...a); const d=Math.hypot(P[0]-dev[0],P[1]-dev[1]); if(d<bd){bd=d;best={si,ai};} }));
+  return best;
+}
+function nearestSeg(world){           // for inserting an anchor
+  let best=null,bd=20*mmPerPx()*DPR;
+  strokes.forEach((s,si)=>{ for(let i=0;i<s.anchors.length-1;i++){ const a=s.anchors[i],b=s.anchors[i+1];
+    const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2; const d=Math.hypot(mx-world[0],my-world[1]); if(d<bd){bd=d;best={si,ai:i+1,pt:[mx,my]};} }});
+  return best;
+}
+
 cv.addEventListener("pointerdown", e=>{
-  if(mode!=="draw") return;
-  drawing={pts:[S2W(e.clientX,e.clientY)], loaded:false}; cv.setPointerCapture(e.pointerId);
+  if(mode==="edit"){
+    if(e.altKey || e.button===2){ const h=pickAnchor(e.clientX,e.clientY); if(h&&strokes[h.si].anchors.length>2){ strokes[h.si].anchors.splice(h.ai,1); draw(); } return; }
+    const h=pickAnchor(e.clientX,e.clientY); if(h){ drag=h; cv.setPointerCapture(e.pointerId); }
+  } else { // draw
+    freehand={anchors:[], loaded:false, raw:[S2W(e.clientX,e.clientY)]}; cv.setPointerCapture(e.pointerId);
+  }
 });
+let lastT=0;
 cv.addEventListener("pointermove", e=>{
-  if(mode!=="draw"||!drawing) return;
-  const now=performance.now(); if(now-lastT<16) return; lastT=now;
-  const w=S2W(e.clientX,e.clientY), last=drawing.pts[drawing.pts.length-1];
-  if(Math.hypot(last[0]-w[0],last[1]-w[1]) > 6*mmPerPx()*DPR/DPR) { drawing.pts.push(w); draw(); }
+  if(drag){ strokes[drag.si].anchors[drag.ai]=S2W(e.clientX,e.clientY); draw(); return; }
+  if(freehand){ const now=performance.now(); if(now-lastT<16) return; lastT=now;
+    const w=S2W(e.clientX,e.clientY), last=freehand.raw[freehand.raw.length-1];
+    if(Math.hypot(last[0]-w[0],last[1]-w[1])>8*mmPerPx()) { freehand.raw.push(w); freehand.anchors=resample(freehand.raw, Math.max(3,Math.round(plen(freehand.raw)/140))); draw(); } }
 });
-cv.addEventListener("pointerup", ()=>{ if(drawing&&drawing.pts.length>1) strokes.push(drawing); drawing=null; draw(); });
+cv.addEventListener("pointerup", ()=>{
+  if(freehand){ if(freehand.anchors.length>=2) strokes.push({anchors:freehand.anchors,loaded:false}); freehand=null; draw(); }
+  drag=null;
+});
+cv.addEventListener("contextmenu", e=>e.preventDefault());
+cv.addEventListener("dblclick", e=>{ if(mode!=="edit") return; const ns=nearestSeg(S2W(e.clientX,e.clientY)); if(ns){ strokes[ns.si].anchors.splice(ns.ai,0,ns.pt); draw(); } });
 
 // ---- load svg ----
-function rescaleLoaded(){
-  if(!loadedRaw) return;
-  strokes = strokes.filter(s=>!s.loaded);
-  const s = figW / loadedRaw.bw;
-  for(const path of loadedRaw.paths){
-    strokes.push({ loaded:true, pts: path.map(([x,y])=>[ (x-loadedRaw.cx)*s, (loadedRaw.cy-y)*s ]) });
-  }
-  draw();
-}
 function loadSvgText(txt){
   const holder=document.getElementById("holder"); holder.innerHTML="";
-  const doc=new DOMParser().parseFromString(txt,"image/svg+xml");
-  const svg=doc.documentElement; holder.appendChild(svg);
-  const ps=[...svg.querySelectorAll("path")];
-  if(!ps.length){ alert("no <path> in that SVG"); return; }
-  let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9; const paths=[];
-  for(const p of ps){
-    const L=p.getTotalLength(); const n=Math.max(8,Math.floor(L/1.5)); const pts=[];
+  const svg=new DOMParser().parseFromString(txt,"image/svg+xml").documentElement; holder.appendChild(svg);
+  const ps=[...svg.querySelectorAll("path")]; if(!ps.length){ alert("no <path> in SVG"); return; }
+  let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9; const raw=[];
+  for(const p of ps){ const L=p.getTotalLength(), n=Math.max(8,Math.floor(L/1.5)), pts=[];
     for(let i=0;i<=n;i++){ const q=p.getPointAtLength(i/n*L); pts.push([q.x,q.y]);
-      minx=Math.min(minx,q.x);miny=Math.min(miny,q.y);maxx=Math.max(maxx,q.x);maxy=Math.max(maxy,q.y); }
-    paths.push(pts);
-  }
-  loadedRaw={paths, bw:maxx-minx, bh:maxy-miny, cx:(minx+maxx)/2, cy:(miny+maxy)/2};
-  document.getElementById("figrow").style.display="block";
-  document.getElementById("figw").style.display="block";
-  rescaleLoaded();
+      minx=Math.min(minx,q.x);miny=Math.min(miny,q.y);maxx=Math.max(maxx,q.x);maxy=Math.max(maxy,q.y); } raw.push(pts); }
+  const bw=maxx-minx, cx=(minx+maxx)/2, cy=(miny+maxy)/2, s=figW/bw;
+  strokes=strokes.filter(x=>!x.loaded);
+  for(const pts of raw){ const mm=pts.map(([x,y])=>[(x-cx)*s,(cy-y)*s]);
+    strokes.push({loaded:true, anchors:resample(mm, Math.max(4,Math.min(40,Math.round(plen(mm)/100))))}); }
+  document.getElementById("figrow").style.display="block"; document.getElementById("figw").style.display="block";
+  draw();
+}
+
+// ---- export ----
+function dl(name, text, type){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click(); }
+function exportFiles(){
+  // when "break at tight bends" is on, export the actual bendable PIECES (cut at
+  // the fingers etc.); otherwise export each stroke whole.
+  const all=[];
+  for(const s of strokes){ const pts=catmull(s.anchors);
+    if(segment){ for(const pc of splitPieces(pts, radii(pts))) all.push(pc); }
+    else all.push(pts); }
+  let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+  all.forEach(p=>p.forEach(([x,y])=>{minx=Math.min(minx,x);miny=Math.min(miny,y);maxx=Math.max(maxx,x);maxy=Math.max(maxy,y);}));
+  const W=maxx-minx, H=maxy-miny;
+  const svgPaths=all.map(p=>'<path d="M '+p.map(([x,y])=>`${(x-minx).toFixed(1)} ${(maxy-y).toFixed(1)}`).join(" L ")+'" fill="none" stroke="#ff7a1a" stroke-width="1"/>').join("\n");
+  dl("bendlab.svg", `<svg xmlns="http://www.w3.org/2000/svg" width="${W.toFixed(0)}mm" height="${H.toFixed(0)}mm" viewBox="0 0 ${W.toFixed(0)} ${H.toFixed(0)}">\n${svgPaths}\n</svg>\n`, "image/svg+xml");
+  const json=all.map((p,i)=>({name:`body_${i}`,kind:"spline",points:p.map(([x,y])=>[Math.round(x),Math.round(y)]),color:"#ff7a1a"}));
+  dl("paths.json", JSON.stringify(json,null,1), "application/json");
 }
 
 // ---- UI ----
 const $=id=>document.getElementById(id);
-$("minr").oninput=e=>{ minR=+e.target.value; $("mrv").textContent=minR; draw(); };
-$("vieww").oninput=e=>{ viewW=+e.target.value*1000; $("vwv").textContent=(+e.target.value).toFixed(1); draw(); };
-$("figw").oninput=e=>{ figW=+e.target.value*1000; $("fwv").textContent=(+e.target.value).toFixed(1); rescaleLoaded(); };
-$("seg").onchange=e=>{ segment=e.target.checked; draw(); };
-$("m-draw").onclick=()=>{ mode="draw"; $("m-draw").classList.add("on"); $("m-load").classList.remove("on"); };
-$("m-load").onclick=()=>{ mode="load"; $("m-load").classList.add("on"); $("m-draw").classList.remove("on"); $("file").click(); };
-$("file").onchange=e=>{ const f=e.target.files[0]; if(f) f.text().then(loadSvgText); };
-$("undo").onclick=()=>{ for(let i=strokes.length-1;i>=0;i--) if(!strokes[i].loaded){ strokes.splice(i,1); break; } draw(); };
-$("clear").onclick=()=>{ strokes=[]; loadedRaw=null; $("figrow").style.display="none"; $("figw").style.display="none"; draw(); };
-
+$("minr").oninput=e=>{minR=+e.target.value;$("mrv").textContent=minR;draw();};
+$("vieww").oninput=e=>{viewW=+e.target.value*1000;$("vwv").textContent=(+e.target.value).toFixed(1);draw();};
+$("figw").oninput=e=>{ const nw=+e.target.value*1000, r=nw/figW; figW=nw; $("fwv").textContent=(+e.target.value).toFixed(1);
+  strokes.forEach(s=>{ if(s.loaded) s.anchors=s.anchors.map(([x,y])=>[x*r,y*r]); }); draw(); };
+$("m-edit").onclick=()=>{mode="edit";$("m-edit").classList.add("on");$("m-draw").classList.remove("on");draw();};
+$("m-draw").onclick=()=>{mode="draw";$("m-draw").classList.add("on");$("m-edit").classList.remove("on");draw();};
+$("load").onclick=()=>$("file").click();
+$("file").onchange=e=>{const f=e.target.files[0]; if(f) f.text().then(loadSvgText);};
+$("simplify").onclick=()=>{ strokes.forEach(s=>{ const pts=catmull(s.anchors); s.anchors=resample(pts, Math.max(3,Math.round(s.anchors.length*0.6))); }); draw(); };
+$("seg").onchange=e=>{segment=e.target.checked;draw();};
+$("undo").onclick=()=>{ strokes.pop(); draw(); };
+$("clear").onclick=()=>{ strokes=[]; $("figrow").style.display="none"; $("figw").style.display="none"; draw(); };
+$("export").onclick=exportFiles;
 resize();
 </script>
 </body>
