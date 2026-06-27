@@ -21,15 +21,15 @@ from build123d import (
 
 @dataclass
 class HostParams:
-    """Defaults match the real product: FN-ESJT-B1023 "Full Black Side",
-    10 x 23 mm dome-emitting silicone neon-flex. The host grips the 10 mm foot;
-    the body + dome (23 mm tall) hang down with the dome facing the room."""
-    neon_w: float = 10.0      # FN-ESJT-B1023 width (the gripped foot)
-    neon_h: float = 23.0      # full profile height (foot -> dome)
-    foot: float = 6.0         # depth of the foot held inside the groove
+    """Defaults: FN-ESJT-B0612 6 x 12 mm COB, white LED in COLOURED silicone
+    (dome-emitting). Chosen over the 10x23 for ~half the bend radius. The host
+    grips the 6 mm foot; the 12 mm body + dome hang down, dome facing the room."""
+    neon_w: float = 6.0       # FN-ESJT-B0612 width (the gripped foot)
+    neon_h: float = 12.0      # full profile height (foot -> dome)
+    foot: float = 5.0         # depth of the foot held inside the groove
     slot_clr: float = 0.4     # per-side push-fit clearance
-    slot_depth: float = 6.0   # groove depth (== foot)
-    lip: float = 1.4          # undercut retaining lip per side (dovetail bit)
+    slot_depth: float = 5.0   # groove depth (== foot)
+    lip: float = 1.0          # undercut retaining lip per side (dovetail bit)
     proud: float = 0.0        # foot sits flush; body protrudes below
     panel_t: float = 12.0     # glossy host panel thickness
 

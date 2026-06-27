@@ -1,74 +1,73 @@
 # Mood Norrlandsgatan — "People in Orbit"
 
-CAD + browser preview for the **AMF / Mood Gallerian** entrance light installation
-(Norrlandsgatan, Stockholm). Replaces Peter Hagdahl's *Liquid Sky*. Concept:
-glowing human-like bodies made of **silicone neon-flex**, pushed into a **glossy
-snap-groove host** that is bracketed to the **existing ceiling steel profiles**.
+CAD + browser tooling for the **AMF / Mood Gallerian** entrance light installation
+(Norrlandsgatan, Stockholm), replacing Peter Hagdahl's *Liquid Sky*. Glowing
+human-like bodies that orbit the entrance columns, made of LED-in-silicone flex
+pushed into a **glossy snap-groove host**, bracketed to the **existing ceiling
+steel profiles**. Canopy ≈ **9 × 5 m**. Brief: 10-yr life, low maintenance, fire
+(PBL — bygglov granted).
 
-Brief: ceiling-mounted, light-bearing, weather-resistant, 10-year life, 3 m
-clearance, fire (PBL — bygglov granted). Canopy ≈ **9 × 5 m**.
+## Settled spec (assumptions until supplier confirms)
+- **Light:** FN-ESJT-B0612 **6×12 COB**, **white LED in coloured silicone** — colour
+  is a stable pigment, no RGB controller (the *Liquid Sky* lesson: minimal electronics).
+  Fixed colour per figure; 2-core + white driver. Min bend radius assumed **90 mm**.
+- **Host:** glossy panel with a routed **dovetail snap-groove** (undercut grips the
+  6 mm foot; 12 mm body + dome hang down, light into the room).
+- **Material:** exterior **compact phenolic** (Trespa Meteon / Fundermax), high-gloss
+  — outdoor/UV/fire-rated, routable.
+- **Cut:** **Shaper Origin** + dovetail bit, on-line along the figure paths.
+- **Mount:** brackets to the existing steel profiles; modules with expansion gaps.
 
-## The neon — FN-ESJT-B1023 "Full Black Side", 10 × 23 mm
-Dome-emitting silicone neon-flex: light comes only from the rounded dome (sides
-blacked out → one clean glowing line). The host grips the **10 mm foot**; the
-**23 mm body + dome hang down**, dome facing the room.
-
-## The engineering
+## The loop
 ```
-  existing steel profile  ═══════════════════   (you bolt the bracket here)
-           │ bracket
-  ┌────────┴───────────────────────────────┐
-  │  GLOSSY HOST PANEL                       │
-  │     ╲__╱  dovetail groove (undercut)     │   foot snaps past the lip,
-  └───────┐██┌───────────────────────────────┘   can't drop out overhead
-          ██ body + dome hang down, light into the room
+figure .ai ─▶ Bend Lab (edit shape, all-green) ─▶ paths.json
+   ─▶ shaper.py (1:1 dovetail-groove SVG)  ─▶ Shaper Origin cut
+   ─▶ figure.py (3D canopy preview) · order.py (cut list / BOM)
 ```
-The **undercut groove** (narrow mouth, wider inside) lets the squishy foot snap in
-and stay put overhead — no clips, no glue. See it in `detail.py` (assemble/explode
-in the viewer).
 
 ## Layout
 ```
 cad/
-  channel.py    # core: HostParams (real FN-ESJT-B1023 dims), snap-groove, neon, coupon
-  detail.py     # ENGINEERING detail: dovetail snap + bracket + steel profile (the part to ideate)
-  figure.py     # full 9x5 m canopy module -> STL/STEP + manifest (reads paths.json if present)
-  calibrate.py  # neon snap-fit coupons across slot clearances (print/cut & tune)
-  render.py     # headless STL -> PNG
-  index.html    # light, static 3D viewer: toggles + explode (the active tool)
-  ideate.html   # optional: freehand pattern sketcher (not needed — bodies come from the .ai)
-  out/          # exported .stl/.step + manifest.json  (gitignored)
+  channel.py    core params (HostParams = 6x12 profile), snap-groove, neon, coupon
+  detail.py     engineering detail: dovetail snap + bracket + steel profile
+  options.py    mounting-option comparison (groove vs alu track vs clips)
+  figure.py     full 9x5 m canopy module -> STL/STEP + manifest (reads paths.json)
+  svgcheck.py   bend-radius check on a figure SVG -> overlay + paths.json
+  shaper.py     1:1 mm Shaper Origin cut SVGs (on-line dovetail grooves)
+  order.py      procurement cut list: metres per colour, segments, power
+  calibrate.py  neon snap-fit coupons across slot clearances
+  render.py     headless STL -> PNG
+  index.html    3D viewer (light, static): toggles + explode
+  bendlab.html  SHAPE + BEND editor: load/draw, edit anchors, smoothing slider,
+                break-at-fingers, live bend check, export SVG + paths.json
+  ideate.html   (optional) freehand pattern sketcher
+  out/          exports + manifest.json + order.csv  (gitignored)
 ```
-`out/` and `.venv/` are gitignored — the `.py` files are the source of truth.
 
 ## Use
 ```sh
 cd cad
-uv run python detail.py        # engineering detail (snap + steel connection)
-#   or: uv run python figure.py    full canopy
-python3 -m http.server 8000    # open http://localhost:8000/cad/  (explode to inspect)
-uv run python calibrate.py     # snap-fit coupons to print/cut and tune the push-fit
+python3 -m http.server 8000     # then open:
+#   bend lab:  http://localhost:8000/cad/bendlab.html   (edit a figure -> Export)
+#   3D view:   http://localhost:8000/cad/               (run detail.py / figure.py first)
+uv run python detail.py         # engineering detail   (or figure.py for the canopy)
+uv run python shaper.py         # 1:1 groove SVGs for the Origin
+uv run python order.py          # cut list / bill of materials
+uv run python calibrate.py      # snap-fit coupons to tune the push-fit
 ```
-Whichever script you run last writes `out/manifest.json`, which the viewer reads.
 
 ## Parameters (`cad/channel.py` → `HostParams`, mm)
 | param | default | meaning |
 |---|---|---|
-| `neon_w` / `neon_h` | 10 / 23 | FN-ESJT-B1023 foot width / full height |
-| `foot` | 6 | depth of the foot gripped in the groove |
+| `neon_w` / `neon_h` | 6 / 12 | FN-ESJT-B0612 foot width / full height |
+| `foot` / `slot_depth` | 5 / 5 | foot gripped in the groove / groove depth |
 | `slot_clr` | 0.4 | per-side push-fit clearance — **tune with `calibrate.py`** |
-| `slot_depth` | 6 | groove depth |
-| `lip` | 1.4 | undercut retaining lip per side (dovetail bit) |
+| `lip` | 1.0 | undercut retaining lip (dovetail bit) |
 | `panel_t` | 12 | glossy host thickness |
 
-## Bodies
-The human figures exist as vector paths in `02 Design/2D/192 MOOD v*.ai` (black =
-neon centerline). Next: extract those paths → `paths.json` → `figure.py` draws the
-real bodies into the canopy. (`ideate.html` can hand-draw extras if ever needed.)
-
-## Next
-- [ ] Extract the `.ai` human centerlines → `paths.json` (the real bodies).
-- [ ] Confirm FN-ESJT-B1023 mounting foot geometry against its datasheet; refine the groove section + `lip`.
-- [ ] Real steel-profile section/spacing from site → bracket type (channel-nut vs L).
-- [ ] Sweep the undercut groove along curved paths (today it's exact only on the straight detail/coupon).
-- [ ] Split the 9 × 5 m host into transport/install modules; match the faceted soffit.
+## To confirm with the supplier / site
+- [ ] FN-ESJT-B0612 **COB availability**, **silicone jacket colours**, IP rating, **real min bend radius**.
+- [ ] White LED **CCT** (tunes the filtered colour) + output (colour filter costs brightness).
+- [ ] Steel-profile section/spacing on site → bracket type + `PROFILE_YS`.
+- [ ] Real figures: edit in Bend Lab to all-green, export `paths.json`.
+- [ ] Sweep the dovetail groove along curved paths (today exact only on the straight detail/coupon).

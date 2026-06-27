@@ -32,8 +32,8 @@
   <h1>Bend Lab</h1>
   <p class="sub">adjust the shape until it's all green</p>
 
-  <label class="f">Min bend radius: <b id="mrv">150</b> mm</label>
-  <input id="minr" type="range" min="40" max="300" value="150">
+  <label class="f">Min bend radius: <b id="mrv">90</b> mm</label>
+  <input id="minr" type="range" min="40" max="300" value="90">
   <label class="f">View width: <b id="vwv">3.0</b> m</label>
   <input id="vieww" type="range" min="0.5" max="14" step="0.1" value="3">
   <label class="f" id="figrow" style="display:none">Figure width: <b id="fwv">2.5</b> m</label>
@@ -65,7 +65,7 @@
 const cv=document.getElementById("c"), ctx=cv.getContext("2d");
 const DPR=Math.min(devicePixelRatio||1,2);
 let strokes=[];          // {anchors:[[mmx,mmy]], loaded}
-let minR=150, viewW=3000, figW=2500, segment=false, mode="edit", smooth=0;
+let minR=90, viewW=3000, figW=2500, segment=false, mode="edit", smooth=0;
 let drag=null, freehand=null;
 function targetN(s){ const full=Math.max(4,Math.min(70,Math.round(plen(s.base)/40))); return Math.max(3,Math.round(full*(1-smooth*0.0092))); }
 
