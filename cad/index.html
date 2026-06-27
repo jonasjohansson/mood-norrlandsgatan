@@ -113,7 +113,7 @@ function fit() {
   const b = new THREE.Box3().setFromObject(root);
   const c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3()).length();
   controls.target.copy(c);
-  home = { pos:new THREE.Vector3(c.x + s*0.3, c.y - s*0.5, c.z + s*0.6), tgt:c.clone(), s };
+  home = { pos:new THREE.Vector3(c.x + s*0.12, c.y - s*0.8, c.z + s*0.22), tgt:c.clone(), s };
   camera.position.copy(home.pos);
   camera.near = s/500; camera.far = s*50; camera.updateProjectionMatrix();
 }
@@ -131,7 +131,7 @@ $("explode").oninput = e => {
   const v = +e.target.value; $("expv").textContent = v;
   for (const t of toggles) t.mesh.position.z = (EXPLODE[t.kind] ?? 0) * v;
 };
-$("below").onclick = () => { if(home) camera.position.set(home.tgt.x, home.tgt.y - home.s*0.05, home.tgt.z + home.s*0.95); };
+$("below").onclick = () => { if(home) camera.position.set(home.tgt.x, home.tgt.y - home.s*0.95, home.tgt.z + home.s*0.02); };
 $("reset").onclick = () => { if(home){ camera.position.copy(home.pos); controls.target.copy(home.tgt);} $("explode").value=0; $("explode").dispatchEvent(new Event("input")); };
 
 addEventListener("resize", () => {
