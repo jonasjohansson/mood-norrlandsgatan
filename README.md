@@ -45,12 +45,15 @@ cad/
 ```
 
 ## Use
+Served by the local web server (docroot = `~/Documents/GitHub`):
+```
+  bend lab:  http://localhost/mood-norrlandsgatan/cad/bendlab.html   (edit a figure -> Export)
+  3D view:   http://localhost/mood-norrlandsgatan/cad/               (run figure.py first)
+  bend map:  http://localhost/mood-norrlandsgatan/cad/out/check_<name>.svg
+```
 ```sh
 cd cad
-python3 -m http.server 8000     # then open:
-#   bend lab:  http://localhost:8000/cad/bendlab.html   (edit a figure -> Export)
-#   3D view:   http://localhost:8000/cad/               (run detail.py / figure.py first)
-uv run python detail.py         # engineering detail   (or figure.py for the canopy)
+uv run python figure.py         # canopy preview  (or detail.py for the snap detail)
 uv run python shaper.py         # 1:1 groove SVGs for the Origin
 uv run python order.py          # cut list / bill of materials
 uv run python calibrate.py      # snap-fit coupons to tune the push-fit
