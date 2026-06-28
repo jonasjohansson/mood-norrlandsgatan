@@ -64,20 +64,36 @@ const VIEWS = {
   "mounting detail": "out/detail.manifest.json",
   "mounting options": "out/options.manifest.json",
 };
+// candidate panel materials (appearance + the specs that matter)
+const MATERIALS = {
+  "Phenolic gloss (Trespa/Fundermax)": { color:"#1b1f24", roughness:0.12, metalness:0.0, cc:1.0,  ccr:0.05, weather:"exterior ✓", fire:"B-s2,d0 / A2", route:"yes (abrasive)" },
+  "Solid surface (HIMACS ext.)":       { color:"#e9ebee", roughness:0.25, metalness:0.0, cc:0.6,  ccr:0.10, weather:"grade-dep.", fire:"B / A2", route:"yes (easy)" },
+  "Aluminium (anodised)":              { color:"#b9c0c7", roughness:0.35, metalness:1.0, cc:0.0,  ccr:0.2,  weather:"✓", fire:"A1", route:"hard handheld" },
+  "PVC foam (UV)":                     { color:"#23272d", roughness:0.7,  metalness:0.0, cc:0.0,  ccr:0.3,  weather:"ok (chalks)", fire:"B self-ext.", route:"yes (easy)" },
+  "Acrylic (cast)":                    { color:"#0e1216", roughness:0.05, metalness:0.0, cc:1.0,  ccr:0.03, weather:"UV ✓", fire:"✗ flammable", route:"chips" },
+};
+// candidate neon-flex profiles (specs)
+const PROFILES = {
+  "FN-ESJT-B0612 6×12 COB": { w:6,  h:12, bend:90,  ip:"IP65+ (confirm)", price:"$1.5/m", note:"recommended" },
+  "FN-ESJT-B0616 6×16":     { w:6,  h:16, bend:90,  ip:"IP65+",           price:"$1.5/m", note:"taller dome" },
+  "FN-ESJT-B1023 10×23":    { w:10, h:23, bend:150, ip:"IP65+",           price:"$2.8/m", note:"stiffer bend" },
+  "Round φ13 270°":         { w:13, h:13, bend:60,  ip:"IP67",            price:"~$2/m",  note:"bends any dir, all-round" },
+};
 const params = {
   view:"canopy", mode:"plan", explode:0, seat:1.0,   // seat = neon proud (flush ~1 mm)
-  bloom:1.6, glow:2.4,
-  hostColor:"#c8ced6", roughness:0.55, metalness:0.0,
+  material:"Phenolic gloss (Trespa/Fundermax)", hostColor:"#1b1f24", roughness:0.12, metalness:0.0,
+  profile:"FN-ESJT-B0612 6×12 COB", neonColor:"#ff7a1a",
+  bloom:1.6, glow:2.4, infoMat:"", infoProf:"",
 };
 const PRESET = {
-  plan: { bg:0xeef1f4, amb:0.85, hemi:0.7, d1:0.6, d2:0.3, host:"#c8ced6", rough:0.55, exposure:1.2 },
-  live: { bg:0x060708, amb:0.22, hemi:0.12, d1:0.18, d2:0.10, host:"#0d0f13", rough:0.25, exposure:1.0 },
+  plan: { bg:0xeef1f4, amb:0.85, hemi:0.7,  d1:0.6,  d2:0.3,  exposure:1.2 },
+  live: { bg:0x060708, amb:0.22, hemi:0.12, d1:0.18, d2:0.10, exposure:1.0 },
 };
 
 function material(p) {
   const col = new THREE.Color(p.color);
   if (p.kind === "neon") return new THREE.MeshStandardMaterial({ color:col, emissive:col, emissiveIntensity:0.55, roughness:0.45 });
-  if (p.kind === "host") return new THREE.MeshStandardMaterial({ color:new THREE.Color(params.hostColor), metalness:params.metalness, roughness:params.roughness });
+  if (p.kind === "host") return new THREE.MeshPhysicalMaterial({ color:new THREE.Color(params.hostColor), metalness:params.metalness, roughness:params.roughness, clearcoat:1.0, clearcoatRoughness:0.06 });
   return new THREE.MeshStandardMaterial({ color:col, metalness:0.8, roughness:0.4 });   // bracket / steel / column
 }
 function addPart(p, geo) {
@@ -95,36 +111,56 @@ function fit() {
 
 // --- live tweaks ---
 function layout() { for (const t of toggles) { let z = (EXPLODE[t.kind] ?? 0) * params.explode; if (t.kind==="neon") z -= params.seat; t.mesh.position.z = z; } }
-function applyHost() { for (const t of toggles) if (t.kind==="host") { t.mesh.material.color.set(params.hostColor); t.mesh.material.roughness = params.roughness; t.mesh.material.metalness = params.metalness; } }
+function applyHost() { for (const t of toggles) if (t.kind==="host") { const m=t.mesh.material; m.color.set(params.hostColor); m.roughness=params.roughness; m.metalness=params.metalness; } }
+function applyMaterial() { const M = MATERIALS[params.material];
+  params.hostColor=M.color; params.roughness=M.roughness; params.metalness=M.metalness;
+  for (const t of toggles) if (t.kind==="host") { const m=t.mesh.material; m.color.set(M.color); m.roughness=M.roughness; m.metalness=M.metalness; if ("clearcoat" in m){ m.clearcoat=M.cc; m.clearcoatRoughness=M.ccr; } }
+  params.infoMat = `weather ${M.weather} · fire ${M.fire} · route ${M.route}`; updateInfo(); }
+function applyProfile() { const P = PROFILES[params.profile];
+  params.infoProf = `${P.w}×${P.h} mm · bend ≥${P.bend} mm · ${P.ip} · ${P.price}`; updateInfo(); }
+function applyNeonColor() { for (const t of toggles) if (t.kind==="neon") { t.mesh.material.color.set(params.neonColor); t.mesh.material.emissive.set(params.neonColor); } }
+function updateInfo() { if (gui) gui.controllersRecursive().forEach(c => c.updateDisplay()); }
 function applyGlow() { for (const t of toggles) if (t.kind==="neon") t.mesh.material.emissiveIntensity = params.mode==="live" ? params.glow : 0.55; bloom.strength = params.bloom; }
 function applyMode() {
   const live = params.mode==="live", P = PRESET[params.mode];
   scene.background.set(P.bg); amb.intensity=P.amb; hemi.intensity=P.hemi; d1.intensity=P.d1; d2.intensity=P.d2;
-  renderer.toneMappingExposure = P.exposure; params.hostColor=P.host; params.roughness=P.rough;
-  applyHost(); applyGlow();
+  renderer.toneMappingExposure = P.exposure;
+  applyGlow();
   for (const t of toggles) if (t.kind==="grid"||t.kind==="steel") { t.mesh.visible=!live; layerProxy[t.name]=!live; if (t.ctrl) t.ctrl.updateDisplay(); }
   if (gui) gui.controllersRecursive().forEach(c => c.updateDisplay());
 }
 
 function buildGUI() {
-  gui = new GUI({ title:"People in Orbit" });
-  gui.add(params,"view",Object.keys(VIEWS)).name("View").onChange(loadView);
+  gui = new GUI({ title:"People in Orbit — testbed" });
+  gui.add(params,"view",Object.keys(VIEWS)).name("View (mounting)").onChange(loadView);
   gui.add(params,"mode",["plan","live"]).name("Mode").onChange(applyMode);
   gui.add(params,"explode",0,150,1).name("Explode").onChange(layout);
-  const g = gui.addFolder("Glow");
-  g.add(params,"bloom",0,3,0.05).name("Bloom").onChange(() => bloom.strength = params.bloom);
-  g.add(params,"glow",0,5,0.1).name("Neon glow").onChange(applyGlow);
-  const s = gui.addFolder("Surface");
-  s.addColor(params,"hostColor").name("Host colour").onChange(applyHost);
-  s.add(params,"roughness",0,1,0.01).name("Roughness").onChange(applyHost);
-  s.add(params,"metalness",0,1,0.01).name("Metalness").onChange(applyHost);
-  const n = gui.addFolder("Neon");
-  n.add(params,"seat",-2,20,0.1).name("Seat / flush (mm)").onChange(layout);
+
+  const fM = gui.addFolder("Material");
+  fM.add(params,"material",Object.keys(MATERIALS)).name("Panel").onChange(applyMaterial);
+  fM.addColor(params,"hostColor").name("Colour").onChange(applyHost);
+  fM.add(params,"roughness",0,1,0.01).name("Roughness").onChange(applyHost);
+  fM.add(params,"metalness",0,1,0.01).name("Metalness").onChange(applyHost);
+
+  const fN = gui.addFolder("Neon");
+  fN.add(params,"profile",Object.keys(PROFILES)).name("Profile").onChange(applyProfile);
+  fN.addColor(params,"neonColor").name("Colour").onChange(applyNeonColor);
+  fN.add(params,"seat",-2,20,0.1).name("Seat / flush (mm)").onChange(layout);
+  fN.add(params,"glow",0,5,0.1).name("Glow").onChange(applyGlow);
+
+  const fS = gui.addFolder("Scene");
+  fS.add(params,"bloom",0,3,0.05).name("Bloom (live)").onChange(() => bloom.strength = params.bloom);
+
   const L = gui.addFolder("Layers");
   for (const t of toggles) { layerProxy[t.name] = t.mesh.visible; t.ctrl = L.add(layerProxy, t.name).onChange(v => t.mesh.visible = v); }
+
+  const fI = gui.addFolder("Specs");
+  fI.add(params,"infoMat").name("Material").disable();
+  fI.add(params,"infoProf").name("Neon").disable();
+
   const cam = gui.addFolder("Camera");
   cam.add({ f:()=>{ if(home) camera.position.set(home.tgt.x, home.tgt.y-home.s*0.95, home.tgt.z+home.s*0.02); } },"f").name("From below");
-  cam.add({ f:()=>{ if(home){ camera.position.copy(home.pos); controls.target.copy(home.tgt);} params.explode=0; layout(); gui.controllersRecursive().forEach(c=>c.updateDisplay()); } },"f").name("Reset view");
+  cam.add({ f:()=>{ if(home){ camera.position.copy(home.pos); controls.target.copy(home.tgt);} params.explode=0; layout(); updateInfo(); } },"f").name("Reset view");
 }
 
 // --- 2D layout overlay (matrix grid + columns + fixings) ---
@@ -162,7 +198,7 @@ async function loadView() {
   if (!m) { buildGUI(); return fail("missing " + url + " — run the matching script (figure.py / detail.py / options.py)"); }
   for (const p of m) { try { addPart(p, await loader.loadAsync("out/"+p.file)); } catch(e){ fail("load out/"+p.file+" — "+e); } }
   if (params.view === "canopy") await addGrid();    // the ceiling layout only makes sense for the canopy
-  buildGUI(); applyMode(); layout(); fit();
+  buildGUI(); applyMaterial(); applyProfile(); applyNeonColor(); applyMode(); layout(); fit();
 }
 loadView();
 
