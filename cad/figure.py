@@ -162,6 +162,7 @@ def build():
                          kind="steel", group="steel", orbit=[0, 0], pos=[0, 0, 0], rot=[0, 0, 0]))
 
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=1))
+    (OUT / "canopy.manifest.json").write_text(json.dumps(manifest, indent=1))
     print(f"wrote {len(manifest)} parts ({len(bodies)} bodies) + manifest.json to {OUT}")
 
 

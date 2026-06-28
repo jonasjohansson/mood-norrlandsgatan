@@ -79,6 +79,7 @@ def build():
 
     export_step(host, str(OUT / "detail_host.step"))
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=1))
+    (OUT / "detail.manifest.json").write_text(json.dumps(manifest, indent=1))
     print(f"wrote detail ({len(manifest)} parts) + manifest.json to {OUT}")
 
 

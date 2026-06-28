@@ -76,4 +76,5 @@ emit("C clips", clips, "#aeb6c0", "bracket", 2 * ROW)
 emit("C neon", neon(9.0), "#ff7a1a", "neon", 2 * ROW)
 
 (OUT / "manifest.json").write_text(json.dumps(manifest, indent=1))
+(OUT / "options.manifest.json").write_text(json.dumps(manifest, indent=1))
 print(f"wrote {len(manifest)} parts (A groove / B track / C clips) + manifest.json to {OUT}")
