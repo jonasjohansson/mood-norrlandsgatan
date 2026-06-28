@@ -42,8 +42,8 @@
   <input id="rot" type="range" min="-180" max="180" value="0" style="display:none">
 
   <div class="row">
-    <button id="m-edit" class="on">Edit</button>
-    <button id="m-move">Move</button>
+    <button id="m-edit">Edit</button>
+    <button id="m-move" class="on">Move</button>
     <button id="m-draw">Draw</button>
     <button id="load">Load…</button>
   </div>
@@ -68,7 +68,7 @@
 const cv=document.getElementById("c"), ctx=cv.getContext("2d");
 const DPR=Math.min(devicePixelRatio||1,2);
 let strokes=[];          // {anchors:[[mmx,mmy]], loaded}
-let minR=90, viewW=3000, figW=2200, segment=false, mode="edit", smooth=0;
+let minR=90, viewW=3000, figW=2200, segment=false, mode="move", smooth=0;
 let drag=null, freehand=null, ceiling=null, prevRot=0, moveLast=null;
 function targetN(s){ const full=Math.max(4,Math.min(70,Math.round(plen(s.base)/40))); return Math.max(3,Math.round(full*(1-smooth*0.0092))); }
 
@@ -265,6 +265,8 @@ $("undo").onclick=()=>{ strokes.pop(); draw(); };
 $("clear").onclick=()=>{ strokes=[]; for(const id of ["figrow","figw","rotrow","rot"]) $(id).style.display="none"; draw(); };
 $("export").onclick=exportFiles;
 resize();
+// predrawn figure — already on the ceiling when you open the lab
+fetch("figures/asset1.svg").then(r=>r.ok?r.text():null).then(t=>{ if(t) loadSvgText(t); }).catch(()=>{});
 </script>
 </body>
 </html>
