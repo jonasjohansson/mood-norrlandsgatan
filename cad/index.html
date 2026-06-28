@@ -123,8 +123,32 @@ fetch("out/manifest.json")
   .then(async (m) => {
     for (const p of m) { try { addPart(p, await loader.loadAsync("out/"+p.file)); }
                          catch(e){ fail("load out/"+p.file+" — "+e); } }
+    await addGrid();          // overlay the 2D ceiling layout (tiles + columns)
     buildUI(); fit();
   }).catch(fail);
+
+// --- 2D layout overlay (tile grid + column circles) on the ceiling underside ---
+async function addGrid() {
+  const d = await fetch("ceiling.json").then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!d) return;
+  const grp = new THREE.Group(); root.add(grp);
+  const z = -1, cs = d.cell_mm, seg = [];
+  for (const [x, y] of d.cells) {
+    const h = cs / 2, c = [[x-h,y-h],[x+h,y-h],[x+h,y+h],[x-h,y+h]];
+    for (let i = 0; i < 4; i++) { const a=c[i], b=c[(i+1)%4]; seg.push(a[0],a[1],z, b[0],b[1],z); }
+  }
+  const gg = new THREE.BufferGeometry();
+  gg.setAttribute("position", new THREE.Float32BufferAttribute(seg, 3));
+  grp.add(new THREE.LineSegments(gg, new THREE.LineBasicMaterial({ color: 0x8a99aa })));
+  for (const col of d.columns) {                       // column circles
+    const cp = [];
+    for (let i = 0; i <= 64; i++) { const a = i/64*Math.PI*2; cp.push(col.c[0]+col.r*Math.cos(a), col.c[1]+col.r*Math.sin(a), z); }
+    const cg = new THREE.BufferGeometry();
+    cg.setAttribute("position", new THREE.Float32BufferAttribute(cp, 3));
+    grp.add(new THREE.Line(cg, new THREE.LineBasicMaterial({ color: 0x39c97a })));
+  }
+  toggles.push({ mesh: grp, name: "ceiling grid", color: "#8a99aa", kind: "grid", baseZ: 0 });
+}
 
 const $ = id => document.getElementById(id);
 $("explode").oninput = e => {
