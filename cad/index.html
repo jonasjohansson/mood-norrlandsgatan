@@ -208,7 +208,7 @@ async function loadView() {
   if (!m) { buildGUI(); return fail("missing " + url + " — run the matching script (figure.py / detail.py / options.py)"); }
   for (const p of m) { try { addPart(p, await loader.loadAsync("out/"+p.file)); } catch(e){ fail("load out/"+p.file+" — "+e); } }
   if (params.view === "canopy") await addGrid();    // the ceiling layout only makes sense for the canopy
-  buildGUI(); applyMaterial(); applyProfile(); applyNeonColor(); applyMode(); layout(); fit();
+  buildGUI(); applyMaterial(); applyProfile(); applyMode(); layout(); fit();   // keep per-figure colours (Neon→Colour overrides all)
 }
 loadView();
 

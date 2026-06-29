@@ -103,7 +103,8 @@ seg=lambda sm,rs:"".join(
     f'<rect x="{minx:.0f}" y="{miny:.0f}" width="{bw:.0f}" height="{bh:.0f}" fill="#0e1116"/>'
     + "".join(seg(sm,rs) for sm,rs in curves) + "</svg>")
 
-bodies=[{"name":f"{name}_{i}","kind":"spline","points":[to_mm(x,y) for x,y in sm],"color":"#ff7a1a"}
+PALETTE = ["#ff3ea5", "#ffe23d", "#00e5ff", "#ff7a1a", "#ff2bd6", "#39ff88", "#2b6bff"]
+bodies=[{"name":f"{name}_{i}","kind":"spline","points":[to_mm(x,y) for x,y in sm],"color":PALETTE[i%len(PALETTE)]}
         for i,(sm,_) in enumerate(curves)]
 (OUT/f"{name}.paths.json").write_text(json.dumps(bodies,indent=1))
 (OUT/"paths.json").write_text(json.dumps(bodies,indent=1))
