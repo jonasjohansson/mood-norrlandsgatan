@@ -32,6 +32,8 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { Reflector } from "three/addons/objects/Reflector.js";
 import { GUI } from "three/addons/libs/lil-gui.module.min.js";
 
 const errEl = document.getElementById("err");
@@ -55,6 +57,17 @@ const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.8, 0.45, 0.05);
 composer.addPass(bloom); composer.addPass(new OutputPass());
+
+// realistic environment lighting (soft reflections + ambient on every surface)
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.fog = new THREE.Fog(0x05070a, 18000, 60000);
+
+// reflective floor ~3 m below the soffit (the street, catches the neon)
+const FLOOR_Y = -3000;
+const floor = new Reflector(new THREE.PlaneGeometry(60000, 60000), {
+  color: 0x0a0c10, textureWidth: 1024, textureHeight: 1024 });
+floor.rotation.x = -Math.PI/2; floor.position.y = FLOOR_Y; scene.add(floor);
 
 const loader = new STLLoader();
 const toggles = []; let home = null, gui = null; const layerProxy = {};
@@ -90,13 +103,13 @@ const params = {
   view:"canopy", mode:"plan", explode:0, seat:250,   // seat = neon hang below soffit (mm) at building scale
   material:"Phenolic gloss (Trespa/Fundermax)", hostColor:"#1b1f24", roughness:0.12, metalness:0.0,
   profile:"FN-ESJT-B0612 6×12 COB", neonColor:"#ff7a1a",
-  bloom:0.8, glow:1.5,
+  bloom:0.8, glow:1.5, floor:true,
   bX:0, bY:0, bZ:0, bRot:0, bScale:1.0,        // building at real scale; canopy is registered to it
   infoCNC:"", infoWeather:"", infoFire:"", infoCost:"", infoNote:"", infoProf:"",
 };
 const PRESET = {
-  plan: { bg:0xeef1f4, amb:0.85, hemi:0.7,  d1:0.6,  d2:0.3,  exposure:1.2 },
-  live: { bg:0x060708, amb:0.22, hemi:0.12, d1:0.18, d2:0.10, exposure:1.0 },
+  plan: { bg:0xeef1f4, amb:0.85, hemi:0.7,  d1:0.6,  d2:0.3,  exposure:1.2, env:0.9 },
+  live: { bg:0x0a0e16, amb:0.40, hemi:0.30, d1:0.25, d2:0.15, exposure:1.1, env:0.45 },  // dusk: scene reads, neon still pops
 };
 
 function material(p) {
@@ -114,9 +127,11 @@ function fit() {
   const b = new THREE.Box3();
   root.children.forEach(o => { if (o !== bldg) b.expandByObject(o); });   // frame the art, not the huge building
   const c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3()).length();
-  controls.target.copy(c);
-  home = { pos:new THREE.Vector3(c.x + s*0.12, c.y - s*0.8, c.z + s*0.22), tgt:c.clone(), s };
-  camera.position.copy(home.pos); camera.near = s/500; camera.far = s*50; camera.updateProjectionMatrix();
+  const eye = -3000 + 1600;                          // standing on the floor, eye height, looking up
+  const tgt = new THREE.Vector3(c.x, c.y, c.z);
+  controls.target.copy(tgt);
+  home = { pos:new THREE.Vector3(c.x + s*0.18, eye, c.z + s*0.55), tgt, s };
+  camera.position.copy(home.pos); camera.near = 10; camera.far = 200000; camera.updateProjectionMatrix();
 }
 
 // --- live tweaks ---
@@ -134,8 +149,10 @@ function applyGlow() { for (const t of toggles) if (t.kind==="neon") t.mesh.mate
 function applyMode() {
   const live = params.mode==="live", P = PRESET[params.mode];
   scene.background.set(P.bg); amb.intensity=P.amb; hemi.intensity=P.hemi; d1.intensity=P.d1; d2.intensity=P.d2;
-  renderer.toneMappingExposure = P.exposure;
-  bldMat.color.set(live ? 0x0c0e12 : 0xc8ced6); bldMat.roughness = live ? 0.5 : 0.7;  // dark building in live so LEDs pop
+  renderer.toneMappingExposure = P.exposure; scene.environmentIntensity = P.env;
+  scene.fog.color.set(P.bg); scene.fog.near = live ? 14000 : 40000; scene.fog.far = live ? 70000 : 200000;
+  bldMat.color.set(live ? 0x14181f : 0xc8ced6); bldMat.roughness = live ? 0.5 : 0.7;  // dark-but-lit building in live
+  if (floor) { const u = floor.material.uniforms; if (u && u.color) u.color.value.set(live ? 0x0a0c10 : 0x9aa3ad); }
   applyGlow();
   for (const t of toggles) if (t.kind==="grid"||t.kind==="steel") { t.mesh.visible=!live; layerProxy[t.name]=!live; if (t.ctrl) t.ctrl.updateDisplay(); }
   if (gui) gui.controllersRecursive().forEach(c => c.updateDisplay());
@@ -161,6 +178,7 @@ function buildGUI() {
 
   const fS = gui.addFolder("Scene");
   fS.add(params,"bloom",0,3,0.05).name("Bloom (live)").onChange(() => bloom.strength = params.bloom);
+  fS.add(params,"floor").name("Floor (reflective)").onChange(v => { if (floor) floor.visible = v; });
 
   const fB = gui.addFolder("Building align");   // dial onto the real pillars
   fB.add(params,"bX",-9000,9000,10).name("X (mm)").onChange(applyBuilding);
@@ -191,7 +209,7 @@ function buildGUI() {
   fI.add(params,"infoProf").name("Neon").disable();
 
   const cam = gui.addFolder("Camera");
-  cam.add({ f:()=>{ if(home) camera.position.set(home.tgt.x, home.tgt.y-home.s*0.95, home.tgt.z+home.s*0.02); } },"f").name("From below");
+  cam.add({ f:()=>{ if(home){ camera.position.set(home.tgt.x, -1400, home.tgt.z + home.s*0.55); controls.target.copy(home.tgt);} } },"f").name("Stand under");
   cam.add({ f:()=>{ if(home){ camera.position.copy(home.pos); controls.target.copy(home.tgt);} params.explode=0; layout(); updateInfo(); } },"f").name("Reset view");
 }
 
