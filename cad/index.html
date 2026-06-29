@@ -91,6 +91,7 @@ const params = {
   material:"Phenolic gloss (Trespa/Fundermax)", hostColor:"#1b1f24", roughness:0.12, metalness:0.0,
   profile:"FN-ESJT-B0612 6×12 COB", neonColor:"#ff7a1a",
   bloom:0.8, glow:1.5,
+  bX:0, bY:0, bZ:0, bRot:0, bScale:1.0,        // building alignment
   infoCNC:"", infoWeather:"", infoFire:"", infoCost:"", infoNote:"", infoProf:"",
 };
 const PRESET = {
@@ -110,7 +111,8 @@ function addPart(p, geo) {
   toggles.push({ mesh, name:p.name, color:p.color, kind:p.kind });
 }
 function fit() {
-  const b = new THREE.Box3().setFromObject(root);
+  const b = new THREE.Box3();
+  root.children.forEach(o => { if (o !== bldg) b.expandByObject(o); });   // frame the art, not the huge building
   const c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3()).length();
   controls.target.copy(c);
   home = { pos:new THREE.Vector3(c.x + s*0.12, c.y - s*0.8, c.z + s*0.22), tgt:c.clone(), s };
@@ -159,6 +161,13 @@ function buildGUI() {
   const fS = gui.addFolder("Scene");
   fS.add(params,"bloom",0,3,0.05).name("Bloom (live)").onChange(() => bloom.strength = params.bloom);
 
+  const fB = gui.addFolder("Building align");   // dial onto the real pillars
+  fB.add(params,"bX",-9000,9000,10).name("X (mm)").onChange(applyBuilding);
+  fB.add(params,"bY",-9000,9000,10).name("Y (mm)").onChange(applyBuilding);
+  fB.add(params,"bZ",-5000,5000,10).name("Z (mm)").onChange(applyBuilding);
+  fB.add(params,"bRot",-180,180,1).name("Rotation°").onChange(applyBuilding);
+  fB.add(params,"bScale",0.2,3,0.01).name("Scale").onChange(applyBuilding);
+
   const L = gui.addFolder("Layers");
   for (const t of toggles) { layerProxy[t.name] = t.mesh.visible; t.ctrl = L.add(layerProxy, t.name).onChange(v => t.mesh.visible = v); }
 
@@ -200,12 +209,18 @@ async function addGrid() {
   toggles.push({ mesh:fix, name:"fixings (~1 m)", color:"#ff7a1a", kind:"grid" });
 }
 
+let bldg = null;
 async function addBuilding() {
   let g; try { g = await gltf.loadAsync("assets/building.glb"); } catch(e){ return; }
-  const o = g.scene; o.scale.setScalar(1000);   // Blender metres -> our mm (soffit already at origin)
-  o.visible = false;                              // off by default; turn on in Layers
-  scene.add(o);                                   // GLB is y-up like the three world (not under root)
-  toggles.push({ mesh:o, name:"building", color:"#3a4150", kind:"building" });
+  bldg = new THREE.Group(); bldg.add(g.scene); root.add(bldg);   // same z-up frame as the canopy
+  applyBuilding(); bldg.visible = false;                          // off by default; toggle in Layers
+  toggles.push({ mesh:bldg, name:"building", color:"#3a4150", kind:"building" });
+}
+function applyBuilding() {
+  if (!bldg) return;
+  bldg.scale.setScalar(1000 * params.bScale);   // metres -> mm (soffit at origin)
+  bldg.rotation.z = params.bRot * Math.PI/180;  // in-plane yaw to match the pillars
+  bldg.position.set(params.bX, params.bY, params.bZ);
 }
 
 async function loadView() {
