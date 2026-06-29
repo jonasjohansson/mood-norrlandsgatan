@@ -135,6 +135,7 @@ function applyMode() {
   const live = params.mode==="live", P = PRESET[params.mode];
   scene.background.set(P.bg); amb.intensity=P.amb; hemi.intensity=P.hemi; d1.intensity=P.d1; d2.intensity=P.d2;
   renderer.toneMappingExposure = P.exposure;
+  bldMat.color.set(live ? 0x0c0e12 : 0xc8ced6); bldMat.roughness = live ? 0.5 : 0.7;  // dark building in live so LEDs pop
   applyGlow();
   for (const t of toggles) if (t.kind==="grid"||t.kind==="steel") { t.mesh.visible=!live; layerProxy[t.name]=!live; if (t.ctrl) t.ctrl.updateDisplay(); }
   if (gui) gui.controllersRecursive().forEach(c => c.updateDisplay());
@@ -173,9 +174,10 @@ function buildGUI() {
     layerProxy[t.name] = t.mesh.visible;
     t.ctrl = L.add(layerProxy, t.name).onChange(v => {
       t.mesh.visible = v;
-      if (t.kind === "building") {                 // real pillars present -> hide our placeholder columns
-        const col = toggles.find(x => x.name === "columns");
-        if (col) { col.mesh.visible = !v; layerProxy["columns"] = !v; col.ctrl?.updateDisplay(); }
+      if (t.kind === "building") {                 // show LEDs on the real building -> hide our scaffolding
+        for (const x of toggles) if (["host","grid","steel","column"].includes(x.kind)) {
+          x.mesh.visible = !v; layerProxy[x.name] = !v; x.ctrl?.updateDisplay();
+        }
       }
     });
   }
@@ -219,10 +221,12 @@ async function addGrid() {
 }
 
 let bldg = null;
+const bldMat = new THREE.MeshStandardMaterial({ color:0xc8ced6, roughness:0.7, metalness:0.0 });
 async function addBuilding() {
   let g; try { g = await gltf.loadAsync("assets/building.glb"); } catch(e){ return; }
-  bldg = new THREE.Group(); bldg.add(g.scene); root.add(bldg);   // same z-up frame as the canopy
-  applyBuilding(); bldg.visible = false;                          // off by default; toggle in Layers
+  g.scene.traverse(o => { if (o.isMesh) o.material = bldMat; });   // one material we control per mode
+  bldg = new THREE.Group(); bldg.add(g.scene); root.add(bldg);     // same z-up frame as the canopy
+  applyBuilding(); bldg.visible = false;                            // off by default; toggle in Layers
   toggles.push({ mesh:bldg, name:"building", color:"#3a4150", kind:"building" });
 }
 function applyBuilding() {
