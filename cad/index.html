@@ -26,6 +26,7 @@
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
@@ -48,6 +49,52 @@ const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; app.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
+
+// --- first-person walk / fly camera (toggle in the Camera folder) ---
+const fpc = new PointerLockControls(camera, renderer.domElement);
+const keys = {}; const wclock = new THREE.Clock();
+let camMode = "orbit", fly = false;
+addEventListener("keydown", e => {
+  if (camMode !== "walk" || !fpc.isLocked) return;
+  if (e.code === "KeyF") { fly = !fly; updateInfo?.(); showWalkHint(); }
+  keys[e.code] = true;
+});
+addEventListener("keyup", e => { keys[e.code] = false; });
+renderer.domElement.addEventListener("click", () => { if (camMode === "walk") fpc.lock(); });
+const hint = document.createElement("div");
+hint.style.cssText = "position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:20;color:#dfe6ef;background:rgba(10,14,22,.72);padding:7px 13px;border-radius:7px;font:12px/1.3 ui-monospace,monospace;pointer-events:none;display:none;text-align:center";
+document.body.appendChild(hint);
+function showWalkHint() {
+  hint.innerHTML = fpc.isLocked
+    ? `WASD move · mouse look · <b>F</b> fly ${fly ? "ON" : "off"}${fly ? " · E up · Q down" : ""} · Esc release`
+    : "Click to walk · WASD move · mouse look · F fly · Esc release";
+  hint.style.display = (camMode === "walk") ? "block" : "none";
+}
+fpc.addEventListener("lock", showWalkHint); fpc.addEventListener("unlock", showWalkHint);
+function setCamMode(m) {
+  camMode = m;
+  if (m === "walk") {
+    controls.enabled = false;
+    const t = home ? home.tgt : new THREE.Vector3();
+    camera.position.set(t.x, FLOOR_Y + 1650, t.z + 9000);   // stand on the ground
+    camera.lookAt(t.x, FLOOR_Y + 4000, t.z);
+  } else { fpc.unlock(); controls.enabled = true; }
+  showWalkHint();
+}
+function updateWalk(dt) {
+  if (camMode !== "walk" || !fpc.isLocked) return;
+  const sp = (keys["ShiftLeft"] || keys["ShiftRight"] ? 14000 : 5000) * dt;
+  if (keys["KeyW"]) fpc.moveForward(sp);
+  if (keys["KeyS"]) fpc.moveForward(-sp);
+  if (keys["KeyA"]) fpc.moveRight(-sp);
+  if (keys["KeyD"]) fpc.moveRight(sp);
+  if (fly) {
+    if (keys["KeyE"]) camera.position.y += sp;
+    if (keys["KeyQ"]) camera.position.y -= sp;
+  } else {
+    camera.position.y = FLOOR_Y + 1650;   // walking: locked to eye height
+  }
+}
 
 const amb  = new THREE.AmbientLight(0xffffff, 0.85); scene.add(amb);
 const hemi = new THREE.HemisphereLight(0xffffff, 0xbac4d0, 0.7); scene.add(hemi);
@@ -247,6 +294,7 @@ function buildGUI() {
   fI.add(params,"infoProf").name("Neon").disable();
 
   const cam = gui.addFolder("Camera");
+  cam.add({ mode:"orbit" }, "mode", ["orbit","walk"]).name("Mode (walk=FPS)").onChange(setCamMode);
   cam.add({ f:()=>{ if(home){ camera.position.set(home.tgt.x, -1400, home.tgt.z + home.s*0.55); controls.target.copy(home.tgt);} } },"f").name("Stand under");
   cam.add({ f:()=>{ if(home){ camera.position.copy(home.pos); controls.target.copy(home.tgt);} params.explode=0; layout(); updateInfo(); } },"f").name("Reset view");
 }
@@ -323,6 +371,7 @@ addEventListener("resize", () => {
 });
 // --- debug hooks for precise screenshots ---
 window.__cam = (px,py,pz, tx=0,ty=0,tz=0) => { camera.position.set(px,py,pz); controls.target.set(tx,ty,tz); controls.update(); };
+window.__walk = setCamMode;   // "walk" | "orbit"
 window.__frameFigures = () => {
   const box = new THREE.Box3();
   for (const t of toggles) if (t.kind === "neon") box.expandByObject(t.mesh);
@@ -341,7 +390,9 @@ window.__probe = () => {
   return { figures:f(fb), building:f(bb), seat:params.seat };
 };
 
-(function loop(){ requestAnimationFrame(loop); controls.update();
+(function loop(){ requestAnimationFrame(loop);
+  const dt = Math.min(wclock.getDelta(), 0.1);
+  if (camMode === "walk") updateWalk(dt); else controls.update();
   if (params.mode==="live") composer.render(); else renderer.render(scene, camera); })();
 </script>
 </body>
