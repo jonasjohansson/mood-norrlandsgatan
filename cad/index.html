@@ -314,6 +314,25 @@ function buildGUI() {
   L.close();
 }
 
+// --- neon as Three.js tubes straight from paths.json (every figure shows; no OCC fails; light) ---
+async function addNeonTubes() {
+  const data = await fetch("out/paths.json").then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!data) return;
+  for (const bd of data) {
+    const P = bd.points;
+    if (!P || P.length < 2) continue;
+    const closed = Math.hypot(P[0][0]-P[P.length-1][0], P[0][1]-P[P.length-1][1]) < 120;
+    const v = (closed ? P.slice(0, -1) : P).map(p => new THREE.Vector3(p[0], p[1], 0));
+    if (v.length < 2) continue;
+    const curve = new THREE.CatmullRomCurve3(v, closed);
+    const geo = new THREE.TubeGeometry(curve, Math.max(16, v.length), 6, 8, closed);
+    const col = new THREE.Color(bd.color || "#ff7a1a");
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color:col, emissive:col, emissiveIntensity:0.55, roughness:0.45 }));
+    root.add(mesh);
+    toggles.push({ mesh, name:bd.name, color:bd.color || "#ff7a1a", kind:"neon" });
+  }
+}
+
 // --- 2D layout overlay (matrix grid + columns + fixings) ---
 async function addGrid() {
   const d = await fetch("ceiling.json").then(r => r.ok ? r.json() : null).catch(() => null);
@@ -373,8 +392,11 @@ async function loadView() {
   const url = VIEWS[params.view] || "out/manifest.json";
   const m = await fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
   if (!m) { buildGUI(); return fail("missing " + url + " — run the matching script (figure.py / detail.py / options.py)"); }
-  for (const p of m) { try { addPart(p, await loader.loadAsync("out/"+p.file)); } catch(e){ fail("load out/"+p.file+" — "+e); } }
-  if (params.view === "canopy") { await addGrid(); await addBuilding(); }   // ceiling layout + real building
+  for (const p of m) {
+    if (params.view === "canopy" && p.kind === "neon") continue;            // neon drawn as tubes from paths.json
+    try { addPart(p, await loader.loadAsync("out/"+p.file)); } catch(e){ fail("load out/"+p.file+" — "+e); }
+  }
+  if (params.view === "canopy") { await addNeonTubes(); await addGrid(); await addBuilding(); }   // tubes + ceiling + building
   buildGUI(); applyMaterial(); applyProfile(); applyMode(); layout(); fit();   // keep per-figure colours (Neon→Colour overrides all)
   if (params.view === "canopy") applyBuildingVisibility(true);   // building shown by default, scaffolding hidden
   setCamMode(params.view === "canopy" ? params.cam : "orbit");   // walk camera by default in the canopy view
