@@ -71,7 +71,7 @@ new RGBELoader().load("assets/night_1k.hdr", tex => {
 scene.fog = new THREE.Fog(0x05070a, 18000, 60000);
 
 // matte floor ~3 m below the soffit (the street/pavement)
-const FLOOR_Y = -3000;
+let FLOOR_Y = -3000;   // updated to the building base once it loads
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000),
   new THREE.MeshStandardMaterial({ color:0x20242a, roughness:0.95, metalness:0.0 }));
 floor.rotation.x = -Math.PI/2; floor.position.y = FLOOR_Y; scene.add(floor);
@@ -134,10 +134,10 @@ function fit() {
   const b = new THREE.Box3();
   root.children.forEach(o => { if (o !== bldg) b.expandByObject(o); });   // frame the art, not the huge building
   const c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3()).length();
-  const eye = -3000 + 1600;                          // standing on the floor, eye height, looking up
+  const eye = FLOOR_Y + 1600;                        // standing on the floor, eye height, looking up
   const tgt = new THREE.Vector3(c.x, c.y, c.z);
   controls.target.copy(tgt);
-  home = { pos:new THREE.Vector3(c.x + s*0.18, eye, c.z + s*0.55), tgt, s };
+  home = { pos:new THREE.Vector3(c.x + s*0.1, eye, c.z + s*1.05), tgt, s };   // stand back on the street, look up
   camera.position.copy(home.pos); camera.near = 10; camera.far = 200000; camera.updateProjectionMatrix();
 }
 
@@ -253,6 +253,9 @@ async function addBuilding() {
   g.scene.traverse(o => { if (o.isMesh) o.material = bldMat; });   // one material we control per mode
   bldg = new THREE.Group(); bldg.add(g.scene); root.add(bldg);     // same z-up frame as the canopy
   applyBuilding(); bldg.visible = true;                             // on by default
+  const bb = new THREE.Box3().setFromObject(bldg);                  // stand the building on the floor:
+  root.position.y = -bb.min.y;                                      // pillar bases -> y = 0
+  FLOOR_Y = 0; floor.position.y = 0;
   toggles.push({ mesh:bldg, name:"building", color:"#3a4150", kind:"building" });
 }
 function applyBuildingVisibility(on) {     // building on -> hide our placeholder scaffolding
@@ -271,6 +274,7 @@ function applyBuilding() {
 async function loadView() {
   errEl.textContent = "";
   for (const t of toggles) { t.mesh.removeFromParent(); t.mesh.geometry?.dispose?.(); }   // clear current
+  root.position.y = 0; FLOOR_Y = -3000; floor.position.y = FLOOR_Y;                        // reset ground shift
   toggles.length = 0; for (const k in layerProxy) delete layerProxy[k];
   if (gui) { gui.destroy(); gui = null; }
   const url = VIEWS[params.view] || "out/manifest.json";
