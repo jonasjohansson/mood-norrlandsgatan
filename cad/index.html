@@ -70,10 +70,10 @@ new RGBELoader().load("assets/night_1k.hdr", tex => {
 });
 scene.fog = new THREE.Fog(0x05070a, 18000, 60000);
 
-// reflective floor ~3 m below the soffit (the street, catches the neon)
+// matte floor ~3 m below the soffit (the street/pavement)
 const FLOOR_Y = -3000;
-const floor = new Reflector(new THREE.PlaneGeometry(60000, 60000), {
-  color: 0x0a0c10, textureWidth: 1024, textureHeight: 1024 });
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000),
+  new THREE.MeshStandardMaterial({ color:0x20242a, roughness:0.95, metalness:0.0 }));
 floor.rotation.x = -Math.PI/2; floor.position.y = FLOOR_Y; scene.add(floor);
 
 const loader = new STLLoader();
@@ -163,7 +163,7 @@ function applyMode() {
   renderer.toneMappingExposure = P.exposure; scene.environmentIntensity = P.env;
   scene.fog.color.set(P.bg); scene.fog.near = live ? 14000 : 40000; scene.fog.far = live ? 70000 : 200000;
   bldMat.color.set(live ? 0x14181f : 0xc8ced6); bldMat.roughness = live ? 0.5 : 0.7;  // dark-but-lit building in live
-  if (floor) { const u = floor.material.uniforms; if (u && u.color) u.color.value.set(live ? 0x0a0c10 : 0x9aa3ad); }
+  if (floor) floor.material.color.set(live ? 0x16191e : 0x9aa3ad);
   applyGlow();
   for (const t of toggles) if (t.kind==="grid"||t.kind==="steel") { t.mesh.visible=!live; layerProxy[t.name]=!live; if (t.ctrl) t.ctrl.updateDisplay(); }
   if (gui) gui.controllersRecursive().forEach(c => c.updateDisplay());
@@ -189,7 +189,7 @@ function buildGUI() {
 
   const fS = gui.addFolder("Scene");
   fS.add(params,"bloom",0,3,0.05).name("Bloom (live)").onChange(() => bloom.strength = params.bloom);
-  fS.add(params,"floor").name("Floor (reflective)").onChange(v => { if (floor) floor.visible = v; });
+  fS.add(params,"floor").name("Floor").onChange(v => { if (floor) floor.visible = v; });
   fS.add(params,"sky").name("Night sky (HDRI)").onChange(applyMode);
 
   const fB = gui.addFolder("Building align");   // dial onto the real pillars
@@ -204,11 +204,7 @@ function buildGUI() {
     layerProxy[t.name] = t.mesh.visible;
     t.ctrl = L.add(layerProxy, t.name).onChange(v => {
       t.mesh.visible = v;
-      if (t.kind === "building") {                 // show LEDs on the real building -> hide our scaffolding
-        for (const x of toggles) if (["host","grid","steel","column"].includes(x.kind)) {
-          x.mesh.visible = !v; layerProxy[x.name] = !v; x.ctrl?.updateDisplay();
-        }
-      }
+      if (t.kind === "building") applyBuildingVisibility(v);   // hide/show our scaffolding to match
     });
   }
 
@@ -256,8 +252,14 @@ async function addBuilding() {
   let g; try { g = await gltf.loadAsync("assets/building.glb?v=" + Date.now()); } catch(e){ return; }
   g.scene.traverse(o => { if (o.isMesh) o.material = bldMat; });   // one material we control per mode
   bldg = new THREE.Group(); bldg.add(g.scene); root.add(bldg);     // same z-up frame as the canopy
-  applyBuilding(); bldg.visible = false;                            // off by default; toggle in Layers
+  applyBuilding(); bldg.visible = true;                             // on by default
   toggles.push({ mesh:bldg, name:"building", color:"#3a4150", kind:"building" });
+}
+function applyBuildingVisibility(on) {     // building on -> hide our placeholder scaffolding
+  if (!bldg) return;
+  bldg.visible = on; layerProxy["building"] = on;
+  for (const x of toggles) if (["host","grid","steel","column"].includes(x.kind)) { x.mesh.visible = !on; layerProxy[x.name] = !on; }
+  if (gui) gui.controllersRecursive().forEach(c => c.updateDisplay());
 }
 function applyBuilding() {
   if (!bldg) return;
@@ -277,6 +279,7 @@ async function loadView() {
   for (const p of m) { try { addPart(p, await loader.loadAsync("out/"+p.file)); } catch(e){ fail("load out/"+p.file+" — "+e); } }
   if (params.view === "canopy") { await addGrid(); await addBuilding(); }   // ceiling layout + real building
   buildGUI(); applyMaterial(); applyProfile(); applyMode(); layout(); fit();   // keep per-figure colours (Neon→Colour overrides all)
+  if (params.view === "canopy") applyBuildingVisibility(true);   // building shown by default, scaffolding hidden
 }
 loadView();
 
