@@ -128,7 +128,7 @@ const gtao = new GTAOPass(scene, camera, innerWidth, innerHeight);   // ambient 
 gtao.output = GTAOPass.OUTPUT.Default;
 gtao.updateGtaoMaterial({ radius:0.35, distanceExponent:1, thickness:1, scale:1.2, samples:16, distanceFallOff:1, screenSpaceRadius:true });
 composer.addPass(gtao);
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.8, 0.45, 0.05);
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.8, 0.45, 0.55);  // threshold 0.55: only the neon blooms, not the HDRI lamp
 composer.addPass(bloom); composer.addPass(new OutputPass());
 
 // realistic environment lighting (soft reflections + ambient on every surface)
@@ -242,7 +242,7 @@ function applyMode() {
   bgColor.set(P.bg);
   scene.background = (live && params.sky && hdrTex) ? hdrTex : (live ? duskSky : bgColor);   // dusk gradient sky
   scene.backgroundBlurriness = 0;   // sharp sky
-  scene.backgroundIntensity = (live && params.sky) ? 0.1 : 1.0;
+  scene.backgroundIntensity = (live && params.sky) ? 0.045 : 1.0;   // dim the night sky so its lamp doesn't blow out
   amb.intensity=P.amb; hemi.intensity=P.hemi; d1.intensity=P.d1; d2.intensity=P.d2;
   renderer.toneMappingExposure = P.exposure; scene.environmentIntensity = P.env;
   bldMat.color.set(live ? 0x14181f : 0xc8ced6); bldMat.roughness = live ? 0.88 : 0.7;  // matte soffit (no HDRI smear)
