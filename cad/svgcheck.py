@@ -26,21 +26,22 @@ txt = src.read_text()
 circles = re.findall(r'<circle[^>]*?cx="([-\d.]+)"\s+cy="([-\d.]+)"', txt)
 if len(circles) < 2:
     raise SystemExit("need 2 column circles in the SVG to register to the pillars")
-S = [(float(circles[0][0]), float(circles[0][1])), (float(circles[1][0]), float(circles[1][1]))]
+S = sorted([(float(circles[0][0]), float(circles[0][1])), (float(circles[1][0]), float(circles[1][1]))])
 
-def similarity(S, T, flip=True):
-    """2-point similarity mapping source S -> target T (source y flipped: svg y-down -> y-up)."""
-    s = [(p[0], -p[1] if flip else p[1]) for p in S]
-    ds = (s[1][0]-s[0][0], s[1][1]-s[0][1]); dt = (T[1][0]-T[0][0], T[1][1]-T[0][1])
-    sc = math.hypot(*dt) / math.hypot(*ds)
-    ang = math.atan2(dt[1], dt[0]) - math.atan2(ds[1], ds[0]); ca, sa = math.cos(ang), math.sin(ang)
-    tx = T[0][0] - sc*(s[0][0]*ca - s[0][1]*sa); ty = T[0][1] - sc*(s[0][0]*sa + s[0][1]*ca)
+def register(S, T):
+    """2-point similarity with REFLECTION + SWAPPED pairing — the orientation that makes the
+    .ai OUTLINE match the real soffit (the plan is mirrored on the ceiling, viewed from below).
+    Verified against the building footprint: this option lands the OUTLINE centre on the soffit."""
+    s0, s1 = complex(*S[0]), complex(*S[1])
+    t0, t1 = complex(*T[1]), complex(*T[0])              # swapped pairing
+    a = (t1 - t0) / (s1.conjugate() - s0.conjugate())    # reflection (conjugate)
+    b = t0 - a * s0.conjugate()
     def tf(x, y):
-        uy = -y if flip else y
-        return (sc*(x*ca - uy*sa) + tx, sc*(x*sa + uy*ca) + ty)
-    return tf, sc
+        z = a * complex(x, y).conjugate() + b
+        return (z.real, z.imag)
+    return tf, abs(a)
 
-tf, scale = similarity(S, PILLARS)     # scale = mm per svg unit
+tf, scale = register(S, PILLARS)     # scale = mm per svg unit
 paths, attribs = svg2paths(str(src))   # attribs carry per-figure stroke colour
 
 def dense(path, step=1.2):
