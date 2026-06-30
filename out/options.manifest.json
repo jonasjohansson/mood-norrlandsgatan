@@ -1,0 +1,149 @@
+[
+ {
+  "name": "A glossy host",
+  "file": "opt_A_glossy_host.stl",
+  "color": "#cfd5db",
+  "kind": "host",
+  "group": "A glossy host",
+  "orbit": [
+   0,
+   0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "A neon",
+  "file": "opt_A_neon.stl",
+  "color": "#ff7a1a",
+  "kind": "neon",
+  "group": "A neon",
+  "orbit": [
+   0,
+   0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "B alu track",
+  "file": "opt_B_alu_track.stl",
+  "color": "#aeb6c0",
+  "kind": "bracket",
+  "group": "B alu track",
+  "orbit": [
+   0,
+   0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "B neon",
+  "file": "opt_B_neon.stl",
+  "color": "#ff7a1a",
+  "kind": "neon",
+  "group": "B neon",
+  "orbit": [
+   0,
+   0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "C plate",
+  "file": "opt_C_plate.stl",
+  "color": "#cfd5db",
+  "kind": "host",
+  "group": "C plate",
+  "orbit": [
+   0,
+   0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "C clips",
+  "file": "opt_C_clips.stl",
+  "color": "#aeb6c0",
+  "kind": "bracket",
+  "group": "C clips",
+  "orbit": [
+   0,
+   0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "C neon",
+  "file": "opt_C_neon.stl",
+  "color": "#ff7a1a",
+  "kind": "neon",
+  "group": "C neon",
+  "orbit": [
+   0,
+   0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ }
+]

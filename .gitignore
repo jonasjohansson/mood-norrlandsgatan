@@ -1,5 +1,20 @@
 .venv/
-out/
 __pycache__/
 .DS_Store
 node_modules/
+
+# out/: publish only the small runtime files the viewer loads.
+# Heavy CAD meshes (viewer uses tubes from paths.json) + derived/old outputs are ignored:
+out/composition_*_neon.stl
+out/Asset_1*
+out/body_*
+out/ring_*
+out/coupon_*
+out/_host.png
+out/manifest.json
+out/detail*
+out/*.step
+out/*.paths.json
+out/check_*.svg
+out/order.csv
+out/shaper/

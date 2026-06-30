@@ -1,0 +1,779 @@
+[
+ {
+  "name": "host",
+  "file": "host.stl",
+  "color": "#15171c",
+  "kind": "host",
+  "group": "host",
+  "orbit": [
+   0,
+   0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_1",
+  "file": "composition_1_neon.stl",
+  "color": "#ff3ea5",
+  "kind": "neon",
+  "group": "composition_1",
+  "orbit": [
+   286.0,
+   -4803.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_3",
+  "file": "composition_3_neon.stl",
+  "color": "#ffd23d",
+  "kind": "neon",
+  "group": "composition_3",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_4",
+  "file": "composition_4_neon.stl",
+  "color": "#00e5ff",
+  "kind": "neon",
+  "group": "composition_4",
+  "orbit": [
+   286.0,
+   -4803.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_5",
+  "file": "composition_5_neon.stl",
+  "color": "#00e5ff",
+  "kind": "neon",
+  "group": "composition_5",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_6",
+  "file": "composition_6_neon.stl",
+  "color": "#00e5ff",
+  "kind": "neon",
+  "group": "composition_6",
+  "orbit": [
+   286.0,
+   -4803.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_7",
+  "file": "composition_7_neon.stl",
+  "color": "#00e5ff",
+  "kind": "neon",
+  "group": "composition_7",
+  "orbit": [
+   286.0,
+   -4803.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_8",
+  "file": "composition_8_neon.stl",
+  "color": "#00e5ff",
+  "kind": "neon",
+  "group": "composition_8",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_9",
+  "file": "composition_9_neon.stl",
+  "color": "#ff7a1a",
+  "kind": "neon",
+  "group": "composition_9",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_10",
+  "file": "composition_10_neon.stl",
+  "color": "#ff7a1a",
+  "kind": "neon",
+  "group": "composition_10",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_11",
+  "file": "composition_11_neon.stl",
+  "color": "#ff7a1a",
+  "kind": "neon",
+  "group": "composition_11",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_12",
+  "file": "composition_12_neon.stl",
+  "color": "#ff7a1a",
+  "kind": "neon",
+  "group": "composition_12",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_13",
+  "file": "composition_13_neon.stl",
+  "color": "#ff7a1a",
+  "kind": "neon",
+  "group": "composition_13",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_14",
+  "file": "composition_14_neon.stl",
+  "color": "#ff7a1a",
+  "kind": "neon",
+  "group": "composition_14",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_15",
+  "file": "composition_15_neon.stl",
+  "color": "#ff7a1a",
+  "kind": "neon",
+  "group": "composition_15",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_16",
+  "file": "composition_16_neon.stl",
+  "color": "#ff7a1a",
+  "kind": "neon",
+  "group": "composition_16",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_17",
+  "file": "composition_17_neon.stl",
+  "color": "#a05bff",
+  "kind": "neon",
+  "group": "composition_17",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_18",
+  "file": "composition_18_neon.stl",
+  "color": "#a05bff",
+  "kind": "neon",
+  "group": "composition_18",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_19",
+  "file": "composition_19_neon.stl",
+  "color": "#a05bff",
+  "kind": "neon",
+  "group": "composition_19",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_20",
+  "file": "composition_20_neon.stl",
+  "color": "#a05bff",
+  "kind": "neon",
+  "group": "composition_20",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_21",
+  "file": "composition_21_neon.stl",
+  "color": "#a05bff",
+  "kind": "neon",
+  "group": "composition_21",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_22",
+  "file": "composition_22_neon.stl",
+  "color": "#39ff88",
+  "kind": "neon",
+  "group": "composition_22",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_23",
+  "file": "composition_23_neon.stl",
+  "color": "#39ff88",
+  "kind": "neon",
+  "group": "composition_23",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_24",
+  "file": "composition_24_neon.stl",
+  "color": "#39ff88",
+  "kind": "neon",
+  "group": "composition_24",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_25",
+  "file": "composition_25_neon.stl",
+  "color": "#39ff88",
+  "kind": "neon",
+  "group": "composition_25",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_26",
+  "file": "composition_26_neon.stl",
+  "color": "#39ff88",
+  "kind": "neon",
+  "group": "composition_26",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_27",
+  "file": "composition_27_neon.stl",
+  "color": "#39ff88",
+  "kind": "neon",
+  "group": "composition_27",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_29",
+  "file": "composition_29_neon.stl",
+  "color": "#2b6bff",
+  "kind": "neon",
+  "group": "composition_29",
+  "orbit": [
+   286.0,
+   -4803.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_30",
+  "file": "composition_30_neon.stl",
+  "color": "#2b6bff",
+  "kind": "neon",
+  "group": "composition_30",
+  "orbit": [
+   286.0,
+   -4803.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_31",
+  "file": "composition_31_neon.stl",
+  "color": "#2b6bff",
+  "kind": "neon",
+  "group": "composition_31",
+  "orbit": [
+   286.0,
+   -4803.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_32",
+  "file": "composition_32_neon.stl",
+  "color": "#2b6bff",
+  "kind": "neon",
+  "group": "composition_32",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_33",
+  "file": "composition_33_neon.stl",
+  "color": "#2b6bff",
+  "kind": "neon",
+  "group": "composition_33",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_34",
+  "file": "composition_34_neon.stl",
+  "color": "#f2f2f2",
+  "kind": "neon",
+  "group": "composition_34",
+  "orbit": [
+   286.0,
+   -4803.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "composition_35",
+  "file": "composition_35_neon.stl",
+  "color": "#f2f2f2",
+  "kind": "neon",
+  "group": "composition_35",
+  "orbit": [
+   286.0,
+   0.0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "columns",
+  "file": "columns.stl",
+  "color": "#aab2bb",
+  "kind": "column",
+  "group": "columns",
+  "orbit": [
+   0,
+   0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "steel profiles",
+  "file": "steel.stl",
+  "color": "#5b6470",
+  "kind": "steel",
+  "group": "steel",
+  "orbit": [
+   0,
+   0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "name": "brackets (host\u2192steel)",
+  "file": "brackets.stl",
+  "color": "#8a929c",
+  "kind": "bracket",
+  "group": "brackets",
+  "orbit": [
+   0,
+   0
+  ],
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ }
+]
