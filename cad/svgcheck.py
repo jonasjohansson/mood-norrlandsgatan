@@ -41,7 +41,7 @@ def similarity(S, T, flip=True):
     return tf, sc
 
 tf, scale = similarity(S, PILLARS)     # scale = mm per svg unit
-paths, _ = svg2paths(str(src))
+paths, attribs = svg2paths(str(src))   # attribs carry per-figure stroke colour
 
 def dense(path, step=1.2):
     L = path.length(); n = max(3, int(L/step))
@@ -84,11 +84,11 @@ def circumR(a,b,c):
 
 thr_svg = MIN_BEND_MM/scale; simplify_svg = simplify_mm/scale
 W = max(3, round(thr_svg/1.2*1.6))
-curves=[]; minR=math.inf
-for p in paths:
+curves=[]; cols=[]; minR=math.inf
+for p, at in zip(paths, attribs):
     d=boxsmooth(dense(p), W); N=max(4, round(p.length()/simplify_svg)); sm=catmull(resample(d,N))
     rs=[math.inf]+[circumR(sm[i-1],sm[i],sm[i+1]) for i in range(1,len(sm)-1)]+[math.inf]
-    minR=min(minR, min(rs)); curves.append((sm,rs))
+    minR=min(minR, min(rs)); curves.append((sm,rs)); cols.append(at.get("stroke") or PALETTE[len(cols)%len(PALETTE)])
 
 tight=sum(1 for _,rs in curves for r in rs if r<thr_svg); tot=sum(len(rs) for _,rs in curves)
 total_m=sum(sum(math.dist(sm[i],sm[i+1]) for i in range(len(sm)-1)) for sm,_ in curves)*scale/1000
@@ -110,7 +110,7 @@ seg=lambda sm,rs:"".join(
 
 PALETTE=["#ff3ea5","#ffe23d","#00e5ff","#ff7a1a","#ff2bd6","#39ff88","#2b6bff"]
 bodies=[{"name":f"{name}_{i}","kind":"spline",
-         "points":[[round(v,1) for v in tf(x,y)] for x,y in sm],"color":PALETTE[i%len(PALETTE)]}
+         "points":[[round(v,1) for v in tf(x,y)] for x,y in sm],"color":cols[i]}
         for i,(sm,_) in enumerate(curves)]
 (OUT/f"{name}.paths.json").write_text(json.dumps(bodies,indent=1))
 (OUT/"paths.json").write_text(json.dumps(bodies,indent=1))
