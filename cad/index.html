@@ -63,17 +63,17 @@ composer.addPass(bloom); composer.addPass(new OutputPass());
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;   // fallback until HDRI loads
 let hdrTex = null;
+// (no fog — it muddied the scene)
 new RGBELoader().load("assets/night_1k.hdr", tex => {
   tex.mapping = THREE.EquirectangularReflectionMapping; hdrTex = tex;
   scene.environment = pmrem.fromEquirectangular(tex).texture;               // realistic night reflections
   if (typeof applyMode === "function") applyMode();
 });
-scene.fog = new THREE.Fog(0x05070a, 18000, 60000);
 
 // matte floor ~3 m below the soffit (the street/pavement)
 let FLOOR_Y = -3000;   // updated to the building base once it loads
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000),
-  new THREE.MeshStandardMaterial({ color:0x20242a, roughness:0.95, metalness:0.0 }));
+  new THREE.MeshStandardMaterial({ color:0x0a0c10, roughness:0.95, metalness:0.0 }));
 floor.rotation.x = -Math.PI/2; floor.position.y = FLOOR_Y; scene.add(floor);
 
 const loader = new STLLoader();
@@ -116,7 +116,7 @@ const params = {
 };
 const PRESET = {
   plan: { bg:0xeef1f4, amb:0.85, hemi:0.7,  d1:0.6,  d2:0.3,  exposure:1.2, env:0.9 },
-  live: { bg:0x0a0e16, amb:0.30, hemi:0.22, d1:0.20, d2:0.12, exposure:1.05, env:0.6 },  // night HDRI lights it; neon pops
+  live: { bg:0x060709, amb:0.12, hemi:0.10, d1:0.12, d2:0.08, exposure:1.0, env:0.28 },  // dark night; neon dominant
 };
 
 function material(p) {
@@ -161,9 +161,8 @@ function applyMode() {
   scene.backgroundIntensity = live ? 0.18 : 1.0;
   amb.intensity=P.amb; hemi.intensity=P.hemi; d1.intensity=P.d1; d2.intensity=P.d2;
   renderer.toneMappingExposure = P.exposure; scene.environmentIntensity = P.env;
-  scene.fog.color.set(P.bg); scene.fog.near = live ? 14000 : 40000; scene.fog.far = live ? 70000 : 200000;
   bldMat.color.set(live ? 0x14181f : 0xc8ced6); bldMat.roughness = live ? 0.5 : 0.7;  // dark-but-lit building in live
-  if (floor) floor.material.color.set(live ? 0x16191e : 0x9aa3ad);
+  if (floor) floor.material.color.set(live ? 0x06080b : 0x9aa3ad);
   applyGlow();
   for (const t of toggles) if (t.kind==="grid"||t.kind==="steel") { t.mesh.visible=!live; layerProxy[t.name]=!live; if (t.ctrl) t.ctrl.updateDisplay(); }
   if (gui) gui.controllersRecursive().forEach(c => c.updateDisplay());
