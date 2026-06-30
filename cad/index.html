@@ -97,7 +97,7 @@ function updateWalk(dt) {
 }
 
 const amb  = new THREE.AmbientLight(0xffffff, 0.85); scene.add(amb);
-const hemi = new THREE.HemisphereLight(0xffffff, 0xbac4d0, 0.7); scene.add(hemi);
+const hemi = new THREE.HemisphereLight(0xfff2e2, 0x3a322b, 0.7); scene.add(hemi);   // warm, neutral ground
 const d1 = new THREE.DirectionalLight(0xffffff, 0.6); d1.position.set(9000,26000,7000); scene.add(d1);
 const d2 = new THREE.DirectionalLight(0xffe6cc, 0.3); d2.position.set(-1,-0.5,-1); scene.add(d2);   // warm fill (no blue cast)
 
@@ -135,7 +135,7 @@ new RGBELoader().load("assets/night_2k.hdr", tex => {
 // matte floor ~3 m below the soffit (the street/pavement)
 let FLOOR_Y = -3000;   // updated to the building base once it loads
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000),
-  new THREE.MeshStandardMaterial({ color:0x0a0c10, roughness:0.95, metalness:0.0 }));
+  new THREE.MeshStandardMaterial({ color:0x0a0c10, roughness:0.95, metalness:0.0, envMapIntensity:0.15 }));  // don't pick up the blue HDRI
 floor.rotation.x = -Math.PI/2; floor.position.y = FLOOR_Y; floor.receiveShadow = true; scene.add(floor);
 
 // dusk sky gradient (deep blue overhead -> warm horizon), the target vibe
@@ -148,9 +148,6 @@ function makeDuskSky() {
 }
 const duskSky = makeDuskSky();
 // colored spill from the neon onto the pillars/floor (decay 0 = predictable tint)
-const glowA = new THREE.PointLight(0xff3ea5, 0, 14000, 0); glowA.position.set(1500,-200,-1200);
-const glowB = new THREE.PointLight(0x8b5cff, 0, 14000, 0); glowB.position.set(-1500,-200,-3400);   // purple, not cyan
-root.add(glowA); root.add(glowB);
 
 const loader = new STLLoader();
 const toggles = []; let home = null, gui = null; const layerProxy = {};
@@ -191,7 +188,7 @@ const params = {
 };
 const PRESET = {
   plan: { bg:0xeef1f4, amb:0.85, hemi:0.7,  d1:0.6,  d2:0.3,  exposure:1.2, env:0.9 },
-  live: { bg:0x060709, amb:0.45, hemi:0.40, d1:0.40, d2:0.22, exposure:1.1, env:0.6 },   // dusk: building reads, neon glows
+  live: { bg:0x060709, amb:0.30, hemi:0.35, d1:0.40, d2:0.22, exposure:1.1, env:0.35 },  // dusk: building reads, neon glows
 };
 
 function material(p) {
@@ -235,11 +232,10 @@ function applyMode() {
   scene.background = (live && params.sky && hdrTex) ? hdrTex : (live ? duskSky : bgColor);   // dusk gradient sky
   scene.backgroundBlurriness = 0;   // sharp sky
   scene.backgroundIntensity = (live && params.sky) ? 0.1 : 1.0;
-  glowA.intensity = live ? 1.0 : 0; glowB.intensity = live ? 0.7 : 0;       // neon colour spill on pillars/floor
   amb.intensity=P.amb; hemi.intensity=P.hemi; d1.intensity=P.d1; d2.intensity=P.d2;
   renderer.toneMappingExposure = P.exposure; scene.environmentIntensity = P.env;
-  bldMat.color.set(live ? 0x14181f : 0xc8ced6); bldMat.roughness = live ? 0.5 : 0.7;  // dark-but-lit building in live
-  if (floor) floor.material.color.set(live ? 0x06080b : 0x9aa3ad);
+  bldMat.color.set(live ? 0x14181f : 0xc8ced6); bldMat.roughness = live ? 0.88 : 0.7;  // matte soffit (no HDRI smear)
+  if (floor) floor.material.color.set(live ? 0x0c0b0a : 0x9aa3ad);                      // neutral dark pavement
   applyGlow();
   for (const t of toggles) if (t.kind==="grid"||t.kind==="steel"||t.kind==="bracket") { t.mesh.visible=!live; layerProxy[t.name]=!live; if (t.ctrl) t.ctrl.updateDisplay(); }
   if (gui) gui.controllersRecursive().forEach(c => c.updateDisplay());
