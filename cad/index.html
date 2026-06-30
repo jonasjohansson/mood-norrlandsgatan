@@ -112,8 +112,7 @@ const gltf = new GLTFLoader();
 
 const VIEWS = {
   "canopy": "out/canopy.manifest.json",
-  "mounting detail": "out/detail.manifest.json",
-  "mounting options": "out/options.manifest.json",
+  "mounting options": "out/options.manifest.json",   // A/B/C method comparison
 };
 // candidate panel materials (appearance + the specs that matter)
 const MATERIALS = {
@@ -195,7 +194,7 @@ function applyMode() {
   bldMat.color.set(live ? 0x14181f : 0xc8ced6); bldMat.roughness = live ? 0.5 : 0.7;  // dark-but-lit building in live
   if (floor) floor.material.color.set(live ? 0x06080b : 0x9aa3ad);
   applyGlow();
-  for (const t of toggles) if (t.kind==="grid"||t.kind==="steel") { t.mesh.visible=!live; layerProxy[t.name]=!live; if (t.ctrl) t.ctrl.updateDisplay(); }
+  for (const t of toggles) if (t.kind==="grid"||t.kind==="steel"||t.kind==="bracket") { t.mesh.visible=!live; layerProxy[t.name]=!live; if (t.ctrl) t.ctrl.updateDisplay(); }
   if (gui) gui.controllersRecursive().forEach(c => c.updateDisplay());
 }
 
@@ -292,7 +291,7 @@ async function addBuilding() {
 function applyBuildingVisibility(on) {     // building on -> hide our placeholder scaffolding
   if (!bldg) return;
   bldg.visible = on; layerProxy["building"] = on;
-  for (const x of toggles) if (["host","grid","steel","column"].includes(x.kind)) { x.mesh.visible = !on; layerProxy[x.name] = !on; }
+  for (const x of toggles) if (["host","grid","steel","column","bracket"].includes(x.kind)) { x.mesh.visible = !on; layerProxy[x.name] = !on; }
   if (gui) gui.controllersRecursive().forEach(c => c.updateDisplay());
 }
 function applyBuilding() {

@@ -151,15 +151,37 @@ def build():
         manifest.append(dict(name="columns", file="columns.stl", color="#aab2bb",
                              kind="column", group="columns", orbit=[0, 0], pos=[0, 0, 0], rot=[0, 0, 0]))
 
-    # --- existing steel profiles (grey context, above the panel) ---
+    # --- mounting: existing ceiling steel + the brackets that hang the host off it,
+    #     laid out across the REAL footprint so the mounting reads on the actual design ---
+    STEEL_GAP = 250.0          # host is bracketed up to the ceiling steel in the void
+    if CEIL.exists():
+        dd = json.loads(CEIL.read_text()); cs2 = dd["cell_mm"]
+        xs = [c[0] for c in dd["cells"]]; ys = [c[1] for c in dd["cells"]]
+        hx0, hx1, hy0, hy1 = min(xs)-cs2/2, max(xs)+cs2/2, min(ys)-cs2/2, max(ys)+cs2/2
+    else:
+        hx0, hx1, hy0, hy1 = -MW/2, MW/2, -MH/2, MH/2
+    cxm = (hx0 + hx1) / 2
+    prof_ys = [hy0 + (hy1 - hy0) * i / 4 for i in range(5)]   # 5 steel runs across the depth
+    brk_xs  = [hx0 + (hx1 - hx0) * i / 6 for i in range(7)]   # brackets along each run
+
     steel = None
-    for by in PROFILE_YS:
-        bar = Pos(0, by, P.panel_t + 40) * Box(MW + 400, 80, 80,
-                                               align=(Align.CENTER, Align.CENTER, Align.MIN))
+    for py in prof_ys:
+        bar = Pos(cxm, py, P.panel_t + STEEL_GAP) * Box(hx1 - hx0 + 400, 80, 80,
+                                                        align=(Align.CENTER, Align.CENTER, Align.MIN))
         steel = bar if steel is None else steel + bar
     export_stl(steel, str(OUT / "steel.stl"))
     manifest.append(dict(name="steel profiles", file="steel.stl", color="#5b6470",
                          kind="steel", group="steel", orbit=[0, 0], pos=[0, 0, 0], rot=[0, 0, 0]))
+
+    brk = None
+    for py in prof_ys:
+        for bx in brk_xs:
+            post = Pos(bx, py, P.panel_t) * Box(60, 60, STEEL_GAP,
+                                                align=(Align.CENTER, Align.CENTER, Align.MIN))
+            brk = post if brk is None else brk + post
+    export_stl(brk, str(OUT / "brackets.stl"))
+    manifest.append(dict(name="brackets (host→steel)", file="brackets.stl", color="#8a929c",
+                         kind="bracket", group="brackets", orbit=[0, 0], pos=[0, 0, 0], rot=[0, 0, 0]))
 
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=1))
     (OUT / "canopy.manifest.json").write_text(json.dumps(manifest, indent=1))
