@@ -32,6 +32,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { Reflector } from "three/addons/objects/Reflector.js";
 import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
@@ -66,6 +67,10 @@ const root = new THREE.Group(); root.rotation.x = -Math.PI/2; scene.add(root); /
 const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 });  // MSAA
 const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
+const gtao = new GTAOPass(scene, camera, innerWidth, innerHeight);   // ambient occlusion (contact depth)
+gtao.output = GTAOPass.OUTPUT.Default;
+gtao.updateGtaoMaterial({ radius:0.35, distanceExponent:1, thickness:1, scale:1.2, samples:16, distanceFallOff:1, screenSpaceRadius:true });
+composer.addPass(gtao);
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.8, 0.45, 0.05);
 composer.addPass(bloom); composer.addPass(new OutputPass());
 
@@ -134,7 +139,7 @@ const params = {
   view:"canopy", mode:"plan", explode:0, seat:250,   // seat = neon hang below soffit (mm) at building scale
   material:"Phenolic gloss (Trespa/Fundermax)", hostColor:"#1b1f24", roughness:0.12, metalness:0.0,
   profile:"FN-ESJT-B0612 6×12 COB", neonColor:"#ff7a1a",
-  bloom:0.8, glow:1.5, floor:true, sky:false,   // HDRI lights the scene; background stays clean dark
+  bloom:0.8, glow:1.5, floor:true, sky:false, ao:true,   // HDRI lights the scene; background stays clean dark
   bX:0, bY:0, bZ:0, bRot:0, bScale:1.0,        // building at real scale; canopy is registered to it
   infoCNC:"", infoWeather:"", infoFire:"", infoCost:"", infoNote:"", infoProf:"",
 };
@@ -216,6 +221,7 @@ function buildGUI() {
   fS.add(params,"bloom",0,3,0.05).name("Bloom (live)").onChange(() => bloom.strength = params.bloom);
   fS.add(params,"floor").name("Floor").onChange(v => { if (floor) floor.visible = v; });
   fS.add(params,"sky").name("Night sky (HDRI)").onChange(applyMode);
+  fS.add(params,"ao").name("Ambient occlusion").onChange(v => gtao.enabled = v);
 
   const fB = gui.addFolder("Building align");   // dial onto the real pillars
   fB.add(params,"bX",-9000,9000,10).name("X (mm)").onChange(applyBuilding);
@@ -314,7 +320,7 @@ loadView();
 
 addEventListener("resize", () => {
   camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight); gtao.setSize(innerWidth,innerHeight);
 });
 // --- debug hooks for precise screenshots ---
 window.__cam = (px,py,pz, tx=0,ty=0,tz=0) => { camera.position.set(px,py,pz); controls.target.set(tx,ty,tz); controls.update(); };
