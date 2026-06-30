@@ -76,8 +76,8 @@ function setCamMode(m) {
   if (m === "walk") {
     controls.enabled = false;
     const t = home ? home.tgt : new THREE.Vector3();
-    camera.position.set(t.x, FLOOR_Y + 1650, t.z + 9000);   // stand on the ground
-    camera.lookAt(t.x, FLOOR_Y + 4000, t.z);
+    camera.position.set(t.x, FLOOR_Y + 1650, t.z + 7000);   // stand back on the street
+    camera.lookAt(t.x, t.y, t.z);                            // look up at the lit soffit
   } else { fpc.unlock(); controls.enabled = true; }
   showWalkHint();
 }
@@ -179,10 +179,10 @@ const PROFILES = {
   "Round φ13 270°":         { w:13, h:13, bend:60,  ip:"IP67",            price:"~$2/m",  note:"bends any dir, all-round" },
 };
 const params = {
-  view:"canopy", mode:"plan", explode:0, seat:250,   // seat = neon hang below soffit (mm) at building scale
+  view:"canopy", mode:"live", explode:0, seat:250,   // seat = neon hang below soffit (mm) at building scale
   material:"Phenolic gloss (Trespa/Fundermax)", hostColor:"#1b1f24", roughness:0.12, metalness:0.0,
   profile:"FN-ESJT-B0612 6×12 COB", neonColor:"#ff7a1a",
-  bloom:0.4, glow:1.5, floor:true, sky:false, ao:true,   // HDRI lights the scene; background stays clean dark
+  bloom:0.4, glow:1.5, floor:true, sky:true, ao:true, cam:"walk",   // night sky on; walk camera default
   bX:0, bY:0, bZ:0, bRot:0, bScale:1.0,        // building at real scale; canopy is registered to it
   infoCNC:"", infoWeather:"", infoFire:"", infoCost:"", infoNote:"", infoProf:"",
 };
@@ -204,6 +204,7 @@ function addPart(p, geo) {
   toggles.push({ mesh, name:p.name, color:p.color, kind:p.kind });
 }
 function fit() {
+  root.updateMatrixWorld(true);                                          // apply the ground shift before measuring
   const b = new THREE.Box3();
   root.children.forEach(o => { if (o !== bldg) b.expandByObject(o); });   // frame the art, not the huge building
   const c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3()).length();
@@ -243,35 +244,55 @@ function applyMode() {
 
 function buildGUI() {
   gui = new GUI({ title:"People in Orbit — testbed" });
-  gui.add(params,"view",Object.keys(VIEWS)).name("View (mounting)").onChange(loadView);
+  gui.add(params,"view",Object.keys(VIEWS)).name("View").onChange(loadView);
   gui.add(params,"mode",["plan","live"]).name("Mode").onChange(applyMode);
-  gui.add(params,"explode",0,150,1).name("Explode").onChange(layout);
 
-  const fM = gui.addFolder("Material");
-  fM.add(params,"material",Object.keys(MATERIALS)).name("Panel").onChange(applyMaterial);
-  fM.addColor(params,"hostColor").name("Colour").onChange(applyHost);
-  fM.add(params,"roughness",0,1,0.01).name("Roughness").onChange(applyHost);
-  fM.add(params,"metalness",0,1,0.01).name("Metalness").onChange(applyHost);
+  // 1) navigation
+  const cam = gui.addFolder("Camera");
+  cam.add(params,"cam",["orbit","walk"]).name("Mode (walk=FPS)").onChange(v => setCamMode(params.view==="canopy" ? v : "orbit"));
+  cam.add({ f:()=>{ if(home){ camera.position.set(home.tgt.x, FLOOR_Y+1600, home.tgt.z + home.s*0.55); controls.target.copy(home.tgt);} } },"f").name("Stand under");
+  cam.add({ f:()=>{ if(home){ camera.position.copy(home.pos); controls.target.copy(home.tgt);} params.explode=0; layout(); updateInfo(); } },"f").name("Reset view");
 
-  const fN = gui.addFolder("Neon");
-  fN.add(params,"profile",Object.keys(PROFILES)).name("Profile").onChange(applyProfile);
-  fN.addColor(params,"neonColor").name("Colour").onChange(applyNeonColor);
-  fN.add(params,"seat",-50,800,5).name("Hang below soffit (mm)").onChange(layout);
-  fN.add(params,"glow",0,5,0.1).name("Glow").onChange(applyGlow);
-
+  // 2) look & lighting
   const fS = gui.addFolder("Scene");
   fS.add(params,"bloom",0,3,0.05).name("Bloom (live)").onChange(() => bloom.strength = params.bloom);
   fS.add(params,"floor").name("Floor").onChange(v => { if (floor) floor.visible = v; });
   fS.add(params,"sky").name("Night sky (HDRI)").onChange(applyMode);
   fS.add(params,"ao").name("Ambient occlusion").onChange(v => gtao.enabled = v);
 
-  const fB = gui.addFolder("Building align");   // dial onto the real pillars
+  // 3) the artwork
+  const fN = gui.addFolder("Neon");
+  fN.add(params,"profile",Object.keys(PROFILES)).name("Profile").onChange(applyProfile);
+  fN.addColor(params,"neonColor").name("Colour").onChange(applyNeonColor);
+  fN.add(params,"seat",-50,800,5).name("Hang below soffit (mm)").onChange(layout);
+  fN.add(params,"glow",0,5,0.1).name("Glow").onChange(applyGlow);
+
+  // 4) the host panel (visible when building is off)
+  const fM = gui.addFolder("Material (host panel)");
+  fM.add(params,"material",Object.keys(MATERIALS)).name("Panel").onChange(applyMaterial);
+  fM.addColor(params,"hostColor").name("Colour").onChange(applyHost);
+  fM.add(params,"roughness",0,1,0.01).name("Roughness").onChange(applyHost);
+  fM.add(params,"metalness",0,1,0.01).name("Metalness").onChange(applyHost);
+  const fI = fM.addFolder("Specs");
+  fI.add(params,"infoCNC").name("CNC").disable();
+  fI.add(params,"infoWeather").name("Weather").disable();
+  fI.add(params,"infoFire").name("Fire").disable();
+  fI.add(params,"infoCost").name("Cost").disable();
+  fI.add(params,"infoNote").name("Note").disable();
+  fI.add(params,"infoProf").name("Neon").disable();
+
+  // 5) engineering / alignment (advanced)
+  const fE = gui.addFolder("Engineering");
+  fE.add(params,"explode",0,150,1).name("Explode").onChange(layout);
+  const fB = fE.addFolder("Building align");   // dial onto the real pillars
   fB.add(params,"bX",-9000,9000,10).name("X (mm)").onChange(applyBuilding);
   fB.add(params,"bY",-9000,9000,10).name("Y (mm)").onChange(applyBuilding);
   fB.add(params,"bZ",-5000,5000,10).name("Z (mm)").onChange(applyBuilding);
   fB.add(params,"bRot",-180,180,1).name("Rotation°").onChange(applyBuilding);
   fB.add(params,"bScale",0.2,3,0.01).name("Scale").onChange(applyBuilding);
+  fE.close();
 
+  // 6) layers — last
   const L = gui.addFolder("Layers");
   for (const t of toggles) {
     layerProxy[t.name] = t.mesh.visible;
@@ -280,19 +301,7 @@ function buildGUI() {
       if (t.kind === "building") applyBuildingVisibility(v);   // hide/show our scaffolding to match
     });
   }
-
-  const fI = gui.addFolder("Material specs");
-  fI.add(params,"infoCNC").name("CNC").disable();
-  fI.add(params,"infoWeather").name("Weather").disable();
-  fI.add(params,"infoFire").name("Fire").disable();
-  fI.add(params,"infoCost").name("Cost").disable();
-  fI.add(params,"infoNote").name("Note").disable();
-  fI.add(params,"infoProf").name("Neon").disable();
-
-  const cam = gui.addFolder("Camera");
-  cam.add({ mode:"orbit" }, "mode", ["orbit","walk"]).name("Mode (walk=FPS)").onChange(setCamMode);
-  cam.add({ f:()=>{ if(home){ camera.position.set(home.tgt.x, -1400, home.tgt.z + home.s*0.55); controls.target.copy(home.tgt);} } },"f").name("Stand under");
-  cam.add({ f:()=>{ if(home){ camera.position.copy(home.pos); controls.target.copy(home.tgt);} params.explode=0; layout(); updateInfo(); } },"f").name("Reset view");
+  L.close();
 }
 
 // --- 2D layout overlay (matrix grid + columns + fixings) ---
@@ -358,6 +367,7 @@ async function loadView() {
   if (params.view === "canopy") { await addGrid(); await addBuilding(); }   // ceiling layout + real building
   buildGUI(); applyMaterial(); applyProfile(); applyMode(); layout(); fit();   // keep per-figure colours (Neon→Colour overrides all)
   if (params.view === "canopy") applyBuildingVisibility(true);   // building shown by default, scaffolding hidden
+  setCamMode(params.view === "canopy" ? params.cam : "orbit");   // walk camera by default in the canopy view
 }
 loadView();
 
