@@ -226,7 +226,7 @@ function fit() {
 }
 
 // --- live tweaks ---
-function layout() { for (const t of toggles) { let z = (EXPLODE[t.kind] ?? 0) * params.explode; if (t.kind==="neon") z -= params.seat; if (t.kind==="host") z -= params.seat - 12; t.mesh.position.z = z; } }   // host panel hangs below the soffit, neon on its underside
+function layout() { for (const t of toggles) { let z = (EXPLODE[t.kind] ?? 0) * params.explode; if (t.kind==="neon") z -= params.seat; if (t.kind==="host"||t.kind==="panel") z -= params.seat - 12; t.mesh.position.z = z; } }   // host panel hangs below the soffit, neon on its underside
 function applyHost() { for (const t of toggles) if (t.kind==="host") { const m=t.mesh.material; m.color.set(params.hostColor); m.roughness=params.roughness; m.metalness=params.metalness; } }
 function applyMaterial() { const M = MATERIALS[params.material];
   params.hostColor=M.color; params.roughness=M.roughness; params.metalness=M.metalness;
@@ -333,6 +333,26 @@ async function addNeonTubes() {
   }
 }
 
+// --- panel seams + break/power points (from panelize.py) ---
+async function addPanels() {
+  const d = await fetch("out/panels.json").then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!d) return;
+  const grp = new THREE.Group();
+  const seg = [];
+  for (const [a,b,c,e] of d.panels) seg.push(a,b,0, c,b,0, c,b,0, c,e,0, c,e,0, a,e,0, a,e,0, a,b,0);   // panel rects
+  const gg = new THREE.BufferGeometry(); gg.setAttribute("position", new THREE.Float32BufferAttribute(seg,3));
+  grp.add(new THREE.LineSegments(gg, new THREE.LineBasicMaterial({ color:0x7f8c9a, transparent:true, opacity:0.55 })));
+  if (d.breaks?.length) {   // break = strip cut + power-injection point
+    const inst = new THREE.InstancedMesh(new THREE.SphereGeometry(45,8,8),
+      new THREE.MeshStandardMaterial({ color:0xff2bd6, emissive:0xff2bd6, emissiveIntensity:0.5 }), d.breaks.length);
+    const m = new THREE.Matrix4();
+    d.breaks.forEach((p,i) => { m.makeTranslation(p[0],p[1],0); inst.setMatrixAt(i,m); });
+    grp.add(inst);
+  }
+  root.add(grp);
+  toggles.push({ mesh:grp, name:"panels + breaks", color:"#7f8c9a", kind:"panel" });
+}
+
 // --- 2D layout overlay (matrix grid + columns + fixings) ---
 async function addGrid() {
   const d = await fetch("ceiling.json").then(r => r.ok ? r.json() : null).catch(() => null);
@@ -396,7 +416,7 @@ async function loadView() {
     if (params.view === "canopy" && p.kind === "neon") continue;            // neon drawn as tubes from paths.json
     try { addPart(p, await loader.loadAsync("out/"+p.file)); } catch(e){ fail("load out/"+p.file+" — "+e); }
   }
-  if (params.view === "canopy") { await addNeonTubes(); await addGrid(); await addBuilding(); }   // tubes + ceiling + building
+  if (params.view === "canopy") { await addNeonTubes(); await addPanels(); await addGrid(); await addBuilding(); }   // tubes + panels + ceiling + building
   buildGUI(); applyMaterial(); applyProfile(); applyMode(); layout(); fit();   // keep per-figure colours (Neon→Colour overrides all)
   if (params.view === "canopy") applyBuildingVisibility(true);   // building shown by default, scaffolding hidden
   setCamMode(params.view === "canopy" ? params.cam : "orbit");   // walk camera by default in the canopy view
