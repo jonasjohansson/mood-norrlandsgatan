@@ -342,13 +342,17 @@ async function addPanels() {
   for (const [a,b,c,e] of d.panels) seg.push(a,b,0, c,b,0, c,b,0, c,e,0, c,e,0, a,e,0, a,e,0, a,b,0);   // panel rects
   const gg = new THREE.BufferGeometry(); gg.setAttribute("position", new THREE.Float32BufferAttribute(seg,3));
   grp.add(new THREE.LineSegments(gg, new THREE.LineBasicMaterial({ color:0x7f8c9a, transparent:true, opacity:0.55 })));
-  if (d.breaks?.length) {   // break = strip cut + power-injection point
-    const inst = new THREE.InstancedMesh(new THREE.SphereGeometry(45,8,8),
-      new THREE.MeshStandardMaterial({ color:0xff2bd6, emissive:0xff2bd6, emissiveIntensity:0.5 }), d.breaks.length);
+  const dots = (pts, r, col) => {
+    if (!pts?.length) return;
+    const inst = new THREE.InstancedMesh(new THREE.SphereGeometry(r,8,8),
+      new THREE.MeshStandardMaterial({ color:col, emissive:col, emissiveIntensity:0.5 }), pts.length);
     const m = new THREE.Matrix4();
-    d.breaks.forEach((p,i) => { m.makeTranslation(p[0],p[1],0); inst.setMatrixAt(i,m); });
+    pts.forEach((p,i) => { m.makeTranslation(p[0],p[1],0); inst.setMatrixAt(i,m); });
     grp.add(inst);
-  }
+  };
+  dots(d.breaks, 50, 0xff2bd6);                          // magenta = strip break / power-injection point
+  const cl = await fetch("out/clips.json").then(r => r.ok ? r.json() : null).catch(() => null);
+  if (cl) dots(cl.clips, 28, 0x22dd66);                  // green = back-clip screw positions
   root.add(grp);
   toggles.push({ mesh:grp, name:"panels + breaks", color:"#7f8c9a", kind:"panel" });
 }
