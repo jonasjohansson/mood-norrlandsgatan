@@ -20,7 +20,7 @@ CS, BH, WMAX = 500.0, 1000.0, 4
 ALPHA, BETA = 1.0, 10.0
 TR = [-300, -200, -100, 0, 100, 200, 300]
 ROT = [-10, -6, -3, 0, 3, 6, 10]
-SC = [1.0, 0.96, 0.92, 0.88]
+SC = [1.0, 0.96, 0.92, 0.88, 0.84]
 PASSES = 2
 VERT = "--vertical" in sys.argv          # optimize against vertical bands (transposed space)
 SWAP = (lambda p: [p[1], p[0]]) if VERT else (lambda p: [p[0], p[1]])
@@ -131,21 +131,21 @@ base = evaluate()
 print(f"start: {base[0]} breaks, {base[1]} panels")
 for p in range(PASSES):
     for c in figs:
-        # translation (grid), then rotation, then scale
+        # JOINT scale x translation search (shrink-and-slide as one move), then rotation
         cur = tuple(state[c])
         best = (evaluate(), change_mag(state[c]), list(state[c]))
-        for dx in TR:
-            for dy in TR:
-                cand = [cur[0]+dx, cur[1]+dy, cur[2], cur[3]]
-                if abs(cand[0]) > 300 or abs(cand[1]) > 300 or (dx == 0 and dy == 0): continue
-                state[c] = cand
-                if not fig_ok(c): state[c] = list(cur); continue
-                sc = evaluate(); mag = change_mag(state[c])
-                if (sc, mag) < (best[0], best[1]): best = (sc, mag, list(state[c]))
-                state[c] = list(cur)
+        for s in SC:
+            for dx in TR:
+                for dy in TR:
+                    cand = [cur[0]+dx, cur[1]+dy, cur[2], s]
+                    if abs(cand[0]) > 300 or abs(cand[1]) > 300 or cand == list(cur): continue
+                    state[c] = cand
+                    if not fig_ok(c): state[c] = list(cur); continue
+                    sc = evaluate(); mag = change_mag(state[c])
+                    if (sc, mag) < (best[0], best[1]): best = (sc, mag, list(state[c]))
+                    state[c] = list(cur)
         state[c] = best[2]
         sc = descend(c, ROT, lambda v: state[c].__setitem__(2, v))
-        sc = descend(c, SC,  lambda v: state[c].__setitem__(3, v))
         print(f"  pass {p+1}  {c}: dx={state[c][0]:.0f} dy={state[c][1]:.0f} rot={state[c][2]:.0f}° scale={state[c][3]:.2f} -> {sc[0]} breaks")
 
 final = evaluate()
