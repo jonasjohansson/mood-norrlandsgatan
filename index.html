@@ -316,7 +316,7 @@ function buildGUI() {
 
 // --- neon as Three.js tubes straight from paths.json (every figure shows; no OCC fails; light) ---
 async function addNeonTubes() {
-  const data = await fetch("out/paths.json").then(r => r.ok ? r.json() : null).catch(() => null);
+  const data = await fetch("out/paths.json?v="+Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
   if (!data) return;
   for (const bd of data) {
     const P = bd.points;
@@ -335,7 +335,7 @@ async function addNeonTubes() {
 
 // --- panel seams + break/power points (from panelize.py) ---
 async function addPanels() {
-  const d = await fetch("out/panels.json").then(r => r.ok ? r.json() : null).catch(() => null);
+  const d = await fetch("out/panels.json?v="+Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
   if (!d) return;
   const grp = new THREE.Group();
   const seg = [];
@@ -351,7 +351,7 @@ async function addPanels() {
     grp.add(inst);
   };
   dots(d.breaks, 50, 0xff2bd6);                          // magenta = strip break / power-injection point
-  const cl = await fetch("out/clips.json").then(r => r.ok ? r.json() : null).catch(() => null);
+  const cl = await fetch("out/clips.json?v="+Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
   if (cl) dots(cl.clips, 28, 0x22dd66);                  // green = back-clip screw positions
   root.add(grp);
   toggles.push({ mesh:grp, name:"panels + breaks", color:"#7f8c9a", kind:"panel" });
@@ -359,7 +359,7 @@ async function addPanels() {
 
 // --- 2D layout overlay (matrix grid + columns + fixings) ---
 async function addGrid() {
-  const d = await fetch("ceiling.json").then(r => r.ok ? r.json() : null).catch(() => null);
+  const d = await fetch("ceiling.json?v="+Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
   if (!d) return;
   const z = -1, cs = d.cell_mm;
   const grp = new THREE.Group(); root.add(grp);
