@@ -72,6 +72,26 @@ def along(poly, d):
 def path_d(poly, a, e):   # local coords, y flipped to SVG (panel top = 0)
     return "M " + " L ".join(f"{x-a:.1f} {e-y:.1f}" for x, y in poly)
 
+WEB_MIN = 26.0            # 6 mm slot + 20 mm phenolic web: closer than this needs a bridge
+def thin_spots(chans):
+    """spots where two slots run closer than WEB_MIN -> leave a ~30 mm bridge (slot uncut)."""
+    from collections import defaultdict as dd
+    G = 50; H = dd(list)
+    for ci, (_, poly) in enumerate(chans):
+        for pi, p in enumerate(poly): H[(int(p[0]//G), int(p[1]//G))].append((ci, pi, p[0], p[1]))
+    spots, seen = [], set()
+    for (gx, gy), pl in H.items():
+        near = []
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1): near += H.get((gx+dx, gy+dy), [])
+        for (ci, pi, x, y) in pl:
+            for (cj, pj, x2, y2) in near:
+                if cj == ci and abs(pj - pi) < 20: continue
+                if (x-x2)**2 + (y-y2)**2 < WEB_MIN**2:
+                    k = (round(x/60), round(y/60))
+                    if k not in seen: seen.add(k); spots.append(((x+x2)/2, (y+y2)/2))
+    return spots
+
 rows = []; tot_clips = tot_feeds = 0; tot_len = 0.0; all_clips = []
 for idx, (a, b, c, e) in enumerate(panels):
     r = (a, b, c, e); w, h = c-a, e-b
@@ -79,24 +99,26 @@ for idx, (a, b, c, e) in enumerate(panels):
     if not chans: continue                       # blank panel (no figure) — no channel SVG needed
     clips = [pt for _, poly in chans for pt in along(poly, CLIP_MM)]
     feeds = [pt for pt in P["breaks"] if a-1 <= pt[0] <= c+1 and b-1 <= pt[1] <= e+1]
+    webs  = thin_spots(chans)
     plen = sum(math.dist(poly[i], poly[i+1]) for _, poly in chans for i in range(len(poly)-1)) / 1000
     pid = f"P{idx:02d}"
     g_ch  = "".join(f'<path d="{path_d(poly,a,e)}" fill="none" stroke="{col}" stroke-width="{SLOT_W}" stroke-opacity="0.9"/>' for col, poly in chans)
     g_cl  = "".join(f'<circle cx="{x-a:.1f}" cy="{e-y:.1f}" r="2" fill="none" stroke="#0b5" stroke-width="0.6"/>' for x, y in clips)
     g_pw  = "".join(f'<circle cx="{x-a:.1f}" cy="{e-y:.1f}" r="5" fill="none" stroke="#e33" stroke-width="1"/>' for x, y in feeds)
+    g_wb  = "".join(f'<circle cx="{x-a:.1f}" cy="{e-y:.1f}" r="9" fill="none" stroke="#e6a817" stroke-width="1.5"/>' for x, y in webs)
     (PDIR / f"{pid}.svg").write_text(
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{w:.0f}mm" height="{h:.0f}mm" viewBox="0 0 {w:.0f} {h:.0f}">'
         f'<g id="outline"><rect x="0" y="0" width="{w:.0f}" height="{h:.0f}" fill="none" stroke="#000" stroke-width="1"/></g>'
-        f'<g id="channels">{g_ch}</g><g id="clips">{g_cl}</g><g id="power">{g_pw}</g></svg>')
+        f'<g id="channels">{g_ch}</g><g id="clips">{g_cl}</g><g id="power">{g_pw}</g><g id="bridges">{g_wb}</g></svg>')
     rows.append([pid, f"{w:.0f}x{h:.0f}", round(w*h/1e6, 2), round(w*h*6*1.45e-6, 1),
-                 len(chans), round(plen, 2), len(clips), len(feeds)])
+                 len(chans), round(plen, 2), len(clips), len(feeds), len(webs)])
     tot_clips += len(clips); tot_feeds += len(feeds); tot_len += plen
     all_clips += [[round(x,1), round(y,1)] for x, y in clips]
 
 json.dump({"clips": all_clips, "power": P["breaks"]}, open(OUT / "clips.json", "w"))
 
 with open(PDIR / "schedule.csv", "w", newline="") as f:
-    wtr = csv.writer(f); wtr.writerow(["panel", "size_mm", "area_m2", "kg", "runs", "led_m", "clips", "power_feeds"]); wtr.writerows(rows)
+    wtr = csv.writer(f); wtr.writerow(["panel", "size_mm", "area_m2", "kg", "runs", "led_m", "clips", "power_feeds", "bridges"]); wtr.writerows(rows)
 
 # placement key: all panels + IDs + faint figures
 kx0 = min(p[0] for p in panels); ky0 = min(p[1] for p in panels)
