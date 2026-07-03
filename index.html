@@ -226,7 +226,7 @@ function fit() {
 }
 
 // --- live tweaks ---
-function layout() { for (const t of toggles) { let z = (EXPLODE[t.kind] ?? 0) * params.explode; if (t.kind==="neon") z -= params.seat; if (t.kind==="host"||t.kind==="panel") z -= params.seat - 12; t.mesh.position.z = z; } }   // host panel hangs below the soffit, neon on its underside
+function layout() { for (const t of toggles) { let z = (EXPLODE[t.kind] ?? 0) * params.explode; if (t.kind==="neon") z -= params.seat; if (t.kind==="host"||t.kind==="panel") z -= params.seat; t.mesh.position.z = z; } }   // sheets at the neon plane: dome flush through the slot
 function applyHost() { for (const t of toggles) if (t.kind==="host") { const m=t.mesh.material; m.color.set(params.hostColor); m.roughness=params.roughness; m.metalness=params.metalness; } }
 function applyMaterial() { const M = MATERIALS[params.material];
   params.hostColor=M.color; params.roughness=M.roughness; params.metalness=M.metalness;
@@ -337,6 +337,18 @@ async function addNeonTubes() {
 async function addPanels() {
   const d = await fetch("out/panels.json?v="+Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
   if (!d) return;
+  // the actual sheets: one 6 mm board per panel with a visible 6 mm joint gap
+  const sheets = new THREE.Group();
+  const sheetMat = new THREE.MeshPhysicalMaterial({ color:new THREE.Color(params.hostColor),
+    metalness:params.metalness, roughness:params.roughness, clearcoat:1.0, clearcoatRoughness:0.06 });
+  for (const [a, b, c, e] of d.panels) {
+    const box = new THREE.Mesh(new THREE.BoxGeometry(c-a-6, e-b-6, 6), sheetMat);
+    box.position.set((a+c)/2, (b+e)/2, 3); box.castShadow = box.receiveShadow = true;
+    sheets.add(box);
+  }
+  sheets.material = sheetMat;                            // Material controls (kind "host") drive all boards
+  root.add(sheets);
+  toggles.push({ mesh:sheets, name:"sheets", color:"#1b1f24", kind:"host" });
   const grp = new THREE.Group();
   const seg = [];
   for (const [a,b,c,e] of d.panels) seg.push(a,b,0, c,b,0, c,b,0, c,e,0, c,e,0, a,e,0, a,e,0, a,b,0);   // panel rects
@@ -425,7 +437,7 @@ async function loadView() {
   const m = await fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
   if (!m) { buildGUI(); return fail("missing " + url + " — run the matching script (figure.py / detail.py / options.py)"); }
   for (const p of m) {
-    if (params.view === "canopy" && p.kind === "neon") continue;            // neon drawn as tubes from paths.json
+    if (params.view === "canopy" && (p.kind === "neon" || p.kind === "host")) continue;   // neon = tubes; host = real sheets (addPanels)
     try { addPart(p, await loader.loadAsync("out/"+p.file)); } catch(e){ fail("load out/"+p.file+" — "+e); }
   }
   if (params.view === "canopy") { await addNeonTubes(); await addPanels(); await addGrid(); await addBuilding(); }   // tubes + panels + ceiling + building
