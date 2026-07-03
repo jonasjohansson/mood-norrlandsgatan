@@ -56,32 +56,28 @@ def xf(c, p):
     return (cx + s*(ux*ca - uy*sa) + dx, cy + s*(ux*sa + uy*ca) + dy)
 
 def build_strokes():
-    out = []
-    for c, idxs in figs.items():
-        for i in idxs: out.append([xf(c, p) for p in bodies[i]["points"]])
-    return out
+    return [(c, [xf(c, p) for p in bodies[i]["points"]]) for c, idxs in figs.items() for i in idxs]
 
 def evaluate():
     strokes = build_strokes()
     vcross = [[] for _ in range(NX+1)]
-    for pts in strokes:
+    figcell = defaultdict(set)                              # (col, band) -> set of figure colours
+    for c, pts in strokes:
         for k in range(len(pts)-1):
             (ax, ay), (bx, by) = pts[k], pts[k+1]
             lo = max(0, math.ceil((min(ax,bx)-x0)/CS)); hi = min(NX, math.floor((max(ax,bx)-x0)/CS))
             for ii in range(lo, hi+1):
                 X = x0+ii*CS
                 if (ax-X)*(bx-X) < 0: vcross[ii].append(ay + (X-ax)/(bx-ax)*(by-ay))
+        for (x, y) in pts:
+            figcell[(int((x-x0)//CS), int((y-y0)//BH))].add(c)
     for L in vcross: L.sort()
     def hcount(Y):
-        n = 0
-        for pts in strokes:
-            for k in range(len(pts)-1):
-                if (pts[k][1]-Y)*(pts[k+1][1]-Y) < 0: n += 1
-        return n
+        return sum(1 for _, pts in strokes for k in range(len(pts)-1) if (pts[k][1]-Y)*(pts[k+1][1]-Y) < 0)
     edges = []; yb = y0
     while yb < y1 - 1: edges.append((yb, min(yb+BH, y1))); yb += BH
-    nb = np = 0
-    for (ba, bb) in edges:
+    nb = np = conf = 0
+    for jb, (ba, bb) in enumerate(edges):
         run = []
         for i in range(NX):
             ok = covered(x0+i*CS, ba, x0+(i+1)*CS, bb)
@@ -94,14 +90,19 @@ def evaluate():
                         seam = 0 if k == n else bisect.bisect_right(vcross[s+k], bb) - bisect.bisect_left(vcross[s+k], ba)
                         cc = dp[k-w] + ALPHA + BETA*seam
                         if cc < dp[k]: dp[k] = cc; prev[k] = k-w
-                k = n
+                cuts = []; k = n
                 while k > 0:
                     np += 1
                     if k < n: nb += bisect.bisect_right(vcross[s+k], bb) - bisect.bisect_left(vcross[s+k], ba)
-                    k = prev[k]
+                    cuts.append(k); k = prev[k]
+                marks = sorted(set([0, n] + cuts))
+                for a2, c2 in zip(marks, marks[1:]):        # each panel: cols [s+a2, s+c2) x band jb
+                    cols = set()
+                    for ci in range(s+a2, s+c2): cols |= figcell.get((ci, jb), set())
+                    if len(cols) >= 2: conf += 1
                 run = []
         if ba > y0 + 1: nb += hcount(ba)
-    return (nb, np)
+    return (conf, nb, np)
 
 def fig_ok(c):
     bad = tot = 0
@@ -115,6 +116,9 @@ def fig_ok(c):
 def change_mag(st):
     return abs(st[0]) + abs(st[1]) + 30*abs(st[2]) + 4000*(1.0-st[3])
 
+def key(sc, mag):
+    return (sc[0], mag, sc[1], sc[2])   # conflicts first, then MINIMAL change, then breaks, then panels
+
 def descend(c, axis_vals, setter):
     best = (evaluate(), change_mag(state[c]), list(state[c]))
     for v in axis_vals:
@@ -122,13 +126,13 @@ def descend(c, axis_vals, setter):
         if state[c] == old or not fig_ok(c):
             state[c] = old; continue
         sc = evaluate(); mag = change_mag(state[c])
-        if (sc, mag) < (best[0], best[1]): best = (sc, mag, list(state[c]))
+        if key(sc, mag) < key(best[0], best[1]): best = (sc, mag, list(state[c]))
         state[c] = old
     state[c] = best[2]
     return best[0]
 
 base = evaluate()
-print(f"start: {base[0]} breaks, {base[1]} panels")
+print(f"start: {base[0]} shared-panel conflicts, {base[1]} breaks, {base[2]} panels")
 for p in range(PASSES):
     for c in figs:
         # JOINT scale x translation search (shrink-and-slide as one move), then rotation
@@ -142,14 +146,14 @@ for p in range(PASSES):
                     state[c] = cand
                     if not fig_ok(c): state[c] = list(cur); continue
                     sc = evaluate(); mag = change_mag(state[c])
-                    if (sc, mag) < (best[0], best[1]): best = (sc, mag, list(state[c]))
+                    if key(sc, mag) < key(best[0], best[1]): best = (sc, mag, list(state[c]))
                     state[c] = list(cur)
         state[c] = best[2]
         sc = descend(c, ROT, lambda v: state[c].__setitem__(2, v))
-        print(f"  pass {p+1}  {c}: dx={state[c][0]:.0f} dy={state[c][1]:.0f} rot={state[c][2]:.0f}° scale={state[c][3]:.2f} -> {sc[0]} breaks")
+        print(f"  pass {p+1}  {c}: dx={state[c][0]:.0f} dy={state[c][1]:.0f} rot={state[c][2]:.0f}° scale={state[c][3]:.2f} -> {sc[0]} conflicts / {sc[1]} breaks")
 
 final = evaluate()
-print(f"final: {final[0]} breaks, {final[1]} panels  (was {base[0]} / {base[1]})")
+print(f"final: {final[0]} conflicts, {final[1]} breaks, {final[2]} panels  (was {base[0]} / {base[1]} / {base[2]})")
 
 for c, idxs in figs.items():
     if state[c] == [0.0, 0.0, 0.0, 1.0]: continue
