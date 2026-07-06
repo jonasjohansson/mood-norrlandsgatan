@@ -1,0 +1,128 @@
+[
+ {
+  "ch": 1,
+  "colour": "blue",
+  "hex": "#2b6bff",
+  "led_m": 19.7,
+  "watts": 197,
+  "amps": 8.2,
+  "panels": [
+   9,
+   17,
+   18,
+   27,
+   36
+  ],
+  "feeds": 7
+ },
+ {
+  "ch": 2,
+  "colour": "green",
+  "hex": "#39ff88",
+  "led_m": 16.2,
+  "watts": 162,
+  "amps": 6.8,
+  "panels": [
+   19,
+   20,
+   21,
+   29,
+   30
+  ],
+  "feeds": 8
+ },
+ {
+  "ch": 3,
+  "colour": "yellow",
+  "hex": "#ffd23d",
+  "led_m": 16.2,
+  "watts": 162,
+  "amps": 6.8,
+  "panels": [
+   45,
+   52,
+   53,
+   59,
+   60
+  ],
+  "feeds": 2
+ },
+ {
+  "ch": 4,
+  "colour": "cyan",
+  "hex": "#00e5ff",
+  "led_m": 15.5,
+  "watts": 155,
+  "amps": 6.4,
+  "panels": [
+   43,
+   50,
+   51,
+   57
+  ],
+  "feeds": 6
+ },
+ {
+  "ch": 5,
+  "colour": "pink",
+  "hex": "#ff3ea5",
+  "led_m": 11.7,
+  "watts": 117,
+  "amps": 4.9,
+  "panels": [
+   16,
+   25,
+   26
+  ],
+  "feeds": 3
+ },
+ {
+  "ch": 6,
+  "colour": "orange",
+  "hex": "#ff7a1a",
+  "led_m": 11.5,
+  "watts": 115,
+  "amps": 4.8,
+  "panels": [
+   1,
+   32,
+   39
+  ],
+  "feeds": 4
+ },
+ {
+  "ch": 7,
+  "colour": "purple",
+  "hex": "#a05bff",
+  "led_m": 11.4,
+  "watts": 114,
+  "amps": 4.8,
+  "panels": [
+   0,
+   12,
+   22,
+   31
+  ],
+  "feeds": 4
+ },
+ {
+  "ch": 8,
+  "colour": "rings",
+  "hex": "#f2f2f2",
+  "led_m": 10.0,
+  "watts": 100,
+  "amps": 4.2,
+  "panels": [
+   26,
+   29,
+   34,
+   35,
+   36,
+   37,
+   41,
+   42,
+   44
+  ],
+  "feeds": 0
+ }
+]
