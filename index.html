@@ -36,6 +36,7 @@ import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { Reflector } from "three/addons/objects/Reflector.js";
 import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { GUI } from "three/addons/libs/lil-gui.module.min.js";
 
 const errEl = document.getElementById("err");
@@ -61,6 +62,7 @@ addEventListener("keydown", e => {
 });
 addEventListener("keyup", e => { keys[e.code] = false; });
 renderer.domElement.addEventListener("mousedown", e => { if (camMode==="walk" && e.button===0) { dragging=true; lastX=e.clientX; lastY=e.clientY; } });
+renderer.domElement.addEventListener("pointerdown", e => { if (e.button===0) onPointerDown(e); });   // touch a plate → ripple
 addEventListener("mouseup", () => { dragging=false; });
 addEventListener("mousemove", e => {
   if (!dragging || camMode !== "walk") return;
@@ -329,8 +331,60 @@ async function addNeonTubes() {
     const col = new THREE.Color(bd.color || "#ff7a1a");
     const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color:col, emissive:col, emissiveIntensity:0.55, roughness:0.45 }));
     root.add(mesh);
-    toggles.push({ mesh, name:bd.name, color:bd.color || "#ff7a1a", kind:"neon" });
+    const cx = v.reduce((s,q)=>s+q.x,0)/v.length, cy = v.reduce((s,q)=>s+q.y,0)/v.length;   // neon-frame centroid → ripple distance
+    toggles.push({ mesh, name:bd.name, color:bd.color || "#ff7a1a", kind:"neon", cx, cy });
   }
+}
+
+// --- interactive hand-plates on the pillars → brightness ripple across the figures ---
+// PILLARS in the neon (soffit-footprint) frame; world footprint is (x, handY, -y).
+const PILLARS = [{ x:286, y:0 }, { x:286, y:-4803 }];
+const RIPPLE  = { speed:5200, width:2000, life:2600, boost:2.4 };   // mm/s wavefront, mm gaussian, ms life, ×brightness
+const ripples = []; const raycaster = new THREE.Raycaster(); const plates = [];
+function neonBase() { return params.mode==="live" ? params.glow : 0.55; }
+function triggerRipple(px, py, plate) {
+  ripples.push({ px, py, t: performance.now() });
+  if (plate) plate.userData.flash = performance.now();   // plate acknowledges the touch
+}
+function updateRipples() {
+  const now = performance.now();
+  for (let i=ripples.length-1; i>=0; i--) if (now-ripples[i].t > RIPPLE.life) ripples.splice(i,1);
+  const base = neonBase();
+  for (const t of toggles) {
+    if (t.kind !== "neon") continue;
+    let extra = 0;
+    for (const r of ripples) {
+      const age = (now-r.t)/1000, front = age*RIPPLE.speed;
+      const d = Math.hypot(t.cx-r.px, t.cy-r.py), z = (d-front)/RIPPLE.width;
+      extra = Math.max(extra, Math.exp(-z*z) * Math.max(0, 1-(now-r.t)/RIPPLE.life));
+    }
+    t.mesh.material.emissiveIntensity = base * (1 + RIPPLE.boost*extra);
+  }
+  for (const p of plates) {                                 // glow the plate briefly when touched
+    const f = p.userData.flash ? Math.max(0, 1-(now-p.userData.flash)/450) : 0;
+    p.material.emissiveIntensity = 0.15 + 1.3*f;
+  }
+  if (!ripples.length) applyGlow();                         // settle figures back to base
+}
+async function addTouchPlates() {
+  const grp = new THREE.Group(); scene.add(grp);
+  const mat = new THREE.MeshStandardMaterial({ color:0x9aa3ac, metalness:0.95, roughness:0.32,
+    emissive:new THREE.Color(0x39c9ff), emissiveIntensity:0.15 });   // brushed aluminium, faint "live" glow
+  const handY = FLOOR_Y + 1200;                              // resting-hand height above the floor
+  for (const p of PILLARS) {
+    const plate = new THREE.Mesh(new RoundedBoxGeometry(230,300,26,4,18), mat.clone());
+    plate.position.set(p.x, handY, -p.y + 120);              // proud of the pillar face, toward the visitor
+    plate.userData = { px:p.x, py:p.y, flash:0 };
+    grp.add(plate); plates.push(plate);
+  }
+  toggles.push({ mesh:grp, name:"touch plates", color:"#9aa3ac", kind:"touch" });
+}
+function onPointerDown(e) {
+  if (!plates.length) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  raycaster.setFromCamera(new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1), camera);
+  const hit = raycaster.intersectObjects(plates, false)[0];
+  if (hit) triggerRipple(hit.object.userData.px, hit.object.userData.py, hit.object);
 }
 
 // --- panel seams + break/power points (from panelize.py) ---
@@ -431,7 +485,7 @@ async function loadView() {
   errEl.textContent = "";
   for (const t of toggles) { t.mesh.removeFromParent(); t.mesh.geometry?.dispose?.(); }   // clear current
   root.position.y = 0; FLOOR_Y = -3000; floor.position.y = FLOOR_Y;                        // reset ground shift
-  toggles.length = 0; for (const k in layerProxy) delete layerProxy[k];
+  toggles.length = 0; plates.length = 0; ripples.length = 0; for (const k in layerProxy) delete layerProxy[k];
   if (gui) { gui.destroy(); gui = null; }
   const url = VIEWS[params.view] || "out/manifest.json";
   const m = await fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
@@ -440,7 +494,7 @@ async function loadView() {
     if (params.view === "canopy" && (p.kind === "neon" || p.kind === "host")) continue;   // neon = tubes; host = real sheets (addPanels)
     try { addPart(p, await loader.loadAsync("out/"+p.file)); } catch(e){ fail("load out/"+p.file+" — "+e); }
   }
-  if (params.view === "canopy") { await addNeonTubes(); await addPanels(); await addGrid(); await addBuilding(); }   // tubes + panels + ceiling + building
+  if (params.view === "canopy") { await addNeonTubes(); await addPanels(); await addGrid(); await addBuilding(); await addTouchPlates(); }   // tubes + panels + ceiling + building + touch
   buildGUI(); applyMaterial(); applyProfile(); applyMode(); layout(); fit();   // keep per-figure colours (Neon→Colour overrides all)
   if (params.view === "canopy") applyBuildingVisibility(true);   // building shown by default, scaffolding hidden
   setCamMode(params.view === "canopy" ? params.cam : "orbit");   // walk camera by default in the canopy view
@@ -454,6 +508,7 @@ addEventListener("resize", () => {
 // --- debug hooks for precise screenshots ---
 window.__cam = (px,py,pz, tx=0,ty=0,tz=0) => { camera.position.set(px,py,pz); controls.target.set(tx,ty,tz); controls.update(); };
 window.__walk = setCamMode;   // "walk" | "orbit"
+window.__touch = (i=0) => triggerRipple(PILLARS[i].x, PILLARS[i].y, plates[i]);   // fire the interaction ripple
 window.__frameFigures = () => {
   const box = new THREE.Box3();
   for (const t of toggles) if (t.kind === "neon") box.expandByObject(t.mesh);
@@ -475,6 +530,7 @@ window.__probe = () => {
 (function loop(){ requestAnimationFrame(loop);
   const dt = Math.min(wclock.getDelta(), 0.1);
   if (camMode === "walk") updateWalk(dt); else controls.update();
+  if (ripples.length) updateRipples();
   if (params.mode==="live") composer.render(); else renderer.render(scene, camera); })();
 </script>
 </body>
