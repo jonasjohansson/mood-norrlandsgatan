@@ -61,9 +61,10 @@ addEventListener("keydown", e => {
   keys[e.code] = true;
 });
 addEventListener("keyup", e => { keys[e.code] = false; });
-renderer.domElement.addEventListener("mousedown", e => { if (camMode==="walk" && e.button===0) { dragging=true; lastX=e.clientX; lastY=e.clientY; } });
-renderer.domElement.addEventListener("pointerdown", e => { if (e.button===0) onPointerDown(e); });   // touch a plate → ripple
-addEventListener("mouseup", () => { dragging=false; });
+renderer.domElement.addEventListener("mousedown", e => { if (camMode==="walk" && e.button===0 && !heldPlate) { dragging=true; lastX=e.clientX; lastY=e.clientY; } });
+renderer.domElement.addEventListener("pointerdown", e => { if (e.button===0) onPointerDown(e); });   // press & hold a plate → hand present
+addEventListener("mouseup", () => { dragging=false; releaseHand(); });
+addEventListener("pointerup", releaseHand);   // hand lifted (also if released outside the canvas)
 addEventListener("mousemove", e => {
   if (!dragging || camMode !== "walk") return;
   yaw   -= (e.clientX - lastX) * LOOK;
@@ -346,22 +347,29 @@ const PILLARS = [{ x:286, y:0 }, { x:286, y:-4803 }];
 // hand-present model: figures rest at "rest %", ramp up to "touch %" while a hand is on a plate,
 // ease back when removed. A short onset ripple sweeps up from the touched pillar as the hand lands.
 const RIPPLE = { speed:5200, width:2000, life:1400, boost:0.9 };    // onset flourish only (brief)
-const HOLD   = { ease:0.09 };                                       // per-frame approach toward the target level
+const HOLD   = { tau:0.18 };                                        // ramp time-constant (s), frame-rate independent
 let activation = 0;                                                 // eased 0..1 (any hand present)
+let heldPlate = null;                                               // the plate currently under a pressed hand
 const ripples = []; const raycaster = new THREE.Raycaster(); const plates = [];
 function neonLevel() {   // sustained emissive: rest → touch as a fraction of full Glow
   if (params.mode !== "live") return 0.55;
   return params.glow * (params.restLevel + (params.touchLevel - params.restLevel) * activation);
 }
-function toggleHand(plate) {                                        // preview: click = place / remove the hand
-  const pd = plate.userData; pd.active = !pd.active; pd.flash = performance.now();
-  if (pd.active) ripples.push({ px:pd.px, py:pd.py, t:performance.now() });   // onset ripple
+function pressHand(plate) {                                         // mouse held on a plate = hand resting there
+  heldPlate = plate; dragging = false;                             // holding the plate, not dragging the view
+  if (!plate.userData.active) {
+    plate.userData.active = true; plate.userData.flash = performance.now();
+    ripples.push({ px:plate.userData.px, py:plate.userData.py, t:performance.now() });   // onset ripple
+  }
 }
-function updateNeon() {
+function releaseHand() {                                            // mouse up = hand lifted
+  if (heldPlate) { heldPlate.userData.active = false; heldPlate = null; }
+}
+function updateNeon(dt=0.016) {
   const now = performance.now();
   for (let i=ripples.length-1; i>=0; i--) if (now-ripples[i].t > RIPPLE.life) ripples.splice(i,1);
   const anyActive = plates.some(p => p.userData.active);
-  activation += ((anyActive ? 1 : 0) - activation) * HOLD.ease;     // smooth ramp up / down
+  activation += ((anyActive ? 1 : 0) - activation) * (1 - Math.exp(-dt / HOLD.tau));   // smooth, frame-rate independent
   if (activation < 0.001 && !anyActive) activation = 0;
   const base = neonLevel();
   for (const t of toggles) {
@@ -399,7 +407,7 @@ function onPointerDown(e) {
   const r = renderer.domElement.getBoundingClientRect();
   raycaster.setFromCamera(new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1), camera);
   const hit = raycaster.intersectObjects(plates, false)[0];
-  if (hit) toggleHand(hit.object);
+  if (hit) pressHand(hit.object);
 }
 function gotoPlate(i=0) {                                     // stand in front of a hand-plate at eye height
   const pl = plates[i]; if (!pl) return;
@@ -531,7 +539,8 @@ addEventListener("resize", () => {
 // --- debug hooks for precise screenshots ---
 window.__cam = (px,py,pz, tx=0,ty=0,tz=0) => { camera.position.set(px,py,pz); controls.target.set(tx,ty,tz); controls.update(); };
 window.__walk = setCamMode;   // "walk" | "orbit"
-window.__touch = (i=0) => plates[i] && toggleHand(plates[i]);   // place / remove the hand on plate i
+window.__hand = (i=0, on=true) => { const p=plates[i]; if(!p) return; on ? pressHand(p) : (heldPlate===p ? releaseHand() : (p.userData.active=false)); };
+window.__touch = (i=0) => { const p=plates[i]; if(!p) return; p.userData.active ? (p.userData.active=false, heldPlate=(heldPlate===p?null:heldPlate)) : pressHand(p); };   // toggle for quick tests
 window.__platepos = () => plates.map(p => [Math.round(p.position.x), Math.round(p.position.y), Math.round(p.position.z), p.userData.active]);
 window.__frameFigures = () => {
   const box = new THREE.Box3();
@@ -554,7 +563,7 @@ window.__probe = () => {
 (function loop(){ requestAnimationFrame(loop);
   const dt = Math.min(wclock.getDelta(), 0.1);
   if (camMode === "walk") updateWalk(dt); else controls.update();
-  updateNeon();
+  updateNeon(dt);
   if (params.mode==="live") composer.render(); else renderer.render(scene, camera); })();
 </script>
 </body>
