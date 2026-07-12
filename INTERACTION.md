@@ -1,10 +1,15 @@
 # Interaction — touch the pillars, the figures come alive
 
 ## Concept
-A conductive **hand-sign plate** on each of the 2 entrance pillars. Place a hand on it →
-the neon figures animate (a light wave/ripple washing out from that pillar across the
-bodies, figures breathing/pulsing). Non-addressable coloured neon, animated by
+A conductive **hand-sign plate** on each of the 2 entrance pillars. The figures **rest at
+~50% brightness** all the time; place a hand on a plate and they **rise to ~90% and hold**
+there while the hand rests, easing back to 50% when it lifts. A short onset ripple sweeps up
+from the touched pillar as the light rushes in. Non-addressable coloured neon, animated by
 **per-figure brightness (PWM)** — colours stay fixed, motion is in the dimming.
+
+Presence is continuous (force sensing), so this is a level, not a trigger: partial pressure
+could even map to a partial lift between 50% and 90%. Tunable live in the viewer via
+**Neon → Rest level / Touch level**.
 
 ## Sensor — force sensing (hand rests with slight pressure)
 Requirements: detect a hand *placed/resting*, **works with gloves**, bulletproof, IP-rated,

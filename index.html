@@ -195,6 +195,7 @@ const params = {
   material:"Phenolic gloss (Trespa/Fundermax)", hostColor:"#1b1f24", roughness:0.12, metalness:0.0,
   profile:"FN-ESJT-B0612 6×12 COB", neonColor:"#ff7a1a",
   bloom:0.4, glow:1.5, floor:true, sky:true, ao:true, cam:"walk",   // night sky on; walk camera default
+  restLevel:0.5, touchLevel:0.9,   // figures rest at 50%, hand-on-plate lifts them to 90% of full Glow
   bX:0, bY:0, bZ:0, bRot:0, bScale:1.0,        // building at real scale; canopy is registered to it
   infoCNC:"", infoWeather:"", infoFire:"", infoCost:"", infoNote:"", infoProf:"",
 };
@@ -278,7 +279,9 @@ function buildGUI() {
   fN.add(params,"profile",Object.keys(PROFILES)).name("Profile").onChange(applyProfile);
   fN.addColor(params,"neonColor").name("Colour").onChange(applyNeonColor);
   fN.add(params,"seat",-50,800,5).name("Hang below soffit (mm)").onChange(layout);
-  fN.add(params,"glow",0,5,0.1).name("Glow").onChange(applyGlow);
+  fN.add(params,"glow",0,5,0.1).name("Glow (full)").onChange(applyGlow);
+  fN.add(params,"restLevel",0,1,0.05).name("Rest level");     // idle brightness (fraction of Glow)
+  fN.add(params,"touchLevel",0,1,0.05).name("Touch level");   // brightness when a hand is on a plate
 
   // 4) the host panel (visible when building is off)
   const fM = gui.addFolder("Material (host panel)");
@@ -340,17 +343,27 @@ async function addNeonTubes() {
 // --- interactive hand-plates on the pillars → brightness ripple across the figures ---
 // PILLARS in the neon (soffit-footprint) frame; world footprint is (x, handY, -y).
 const PILLARS = [{ x:286, y:0 }, { x:286, y:-4803 }];
-const RIPPLE  = { speed:5200, width:2000, life:2600, boost:2.4 };   // mm/s wavefront, mm gaussian, ms life, ×brightness
+// hand-present model: figures rest at "rest %", ramp up to "touch %" while a hand is on a plate,
+// ease back when removed. A short onset ripple sweeps up from the touched pillar as the hand lands.
+const RIPPLE = { speed:5200, width:2000, life:1400, boost:0.9 };    // onset flourish only (brief)
+const HOLD   = { ease:0.09 };                                       // per-frame approach toward the target level
+let activation = 0;                                                 // eased 0..1 (any hand present)
 const ripples = []; const raycaster = new THREE.Raycaster(); const plates = [];
-function neonBase() { return params.mode==="live" ? params.glow : 0.55; }
-function triggerRipple(px, py, plate) {
-  ripples.push({ px, py, t: performance.now() });
-  if (plate) plate.userData.flash = performance.now();   // plate acknowledges the touch
+function neonLevel() {   // sustained emissive: rest → touch as a fraction of full Glow
+  if (params.mode !== "live") return 0.55;
+  return params.glow * (params.restLevel + (params.touchLevel - params.restLevel) * activation);
 }
-function updateRipples() {
+function toggleHand(plate) {                                        // preview: click = place / remove the hand
+  const pd = plate.userData; pd.active = !pd.active; pd.flash = performance.now();
+  if (pd.active) ripples.push({ px:pd.px, py:pd.py, t:performance.now() });   // onset ripple
+}
+function updateNeon() {
   const now = performance.now();
   for (let i=ripples.length-1; i>=0; i--) if (now-ripples[i].t > RIPPLE.life) ripples.splice(i,1);
-  const base = neonBase();
+  const anyActive = plates.some(p => p.userData.active);
+  activation += ((anyActive ? 1 : 0) - activation) * HOLD.ease;     // smooth ramp up / down
+  if (activation < 0.001 && !anyActive) activation = 0;
+  const base = neonLevel();
   for (const t of toggles) {
     if (t.kind !== "neon") continue;
     let extra = 0;
@@ -361,11 +374,10 @@ function updateRipples() {
     }
     t.mesh.material.emissiveIntensity = base * (1 + RIPPLE.boost*extra);
   }
-  for (const p of plates) {                                 // glow the plate briefly when touched
+  for (const p of plates) {                                         // plate: steady glow when active, flash on toggle
     const f = p.userData.flash ? Math.max(0, 1-(now-p.userData.flash)/450) : 0;
-    p.material.emissiveIntensity = 0.15 + 1.3*f;
+    p.material.emissiveIntensity = 0.15 + 0.85*(p.userData.active?1:0) + 0.9*f;
   }
-  if (!ripples.length) applyGlow();                         // settle figures back to base
 }
 async function addTouchPlates() {
   const grp = new THREE.Group(); scene.add(grp);
@@ -377,7 +389,7 @@ async function addTouchPlates() {
     const zc = -p.y;                                         // pillar centre in world Z (ring footprint)
     const plate = new THREE.Mesh(new RoundedBoxGeometry(230,300,26,4,18), mat.clone());
     plate.position.set(p.x, handY, zc + PILLAR_R + 13);      // flush on the +Z (street-facing) pillar surface
-    plate.userData = { px:p.x, py:p.y, flash:0 };
+    plate.userData = { px:p.x, py:p.y, flash:0, active:false };
     grp.add(plate); plates.push(plate);
   }
   toggles.push({ mesh:grp, name:"touch plates", color:"#9aa3ac", kind:"touch" });
@@ -387,7 +399,7 @@ function onPointerDown(e) {
   const r = renderer.domElement.getBoundingClientRect();
   raycaster.setFromCamera(new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1), camera);
   const hit = raycaster.intersectObjects(plates, false)[0];
-  if (hit) triggerRipple(hit.object.userData.px, hit.object.userData.py, hit.object);
+  if (hit) toggleHand(hit.object);
 }
 function gotoPlate(i=0) {                                     // stand in front of a hand-plate at eye height
   const pl = plates[i]; if (!pl) return;
@@ -519,8 +531,8 @@ addEventListener("resize", () => {
 // --- debug hooks for precise screenshots ---
 window.__cam = (px,py,pz, tx=0,ty=0,tz=0) => { camera.position.set(px,py,pz); controls.target.set(tx,ty,tz); controls.update(); };
 window.__walk = setCamMode;   // "walk" | "orbit"
-window.__touch = (i=0) => triggerRipple(PILLARS[i].x, PILLARS[i].y, plates[i]);   // fire the interaction ripple
-window.__platepos = () => plates.map(p => [Math.round(p.position.x), Math.round(p.position.y), Math.round(p.position.z)]);
+window.__touch = (i=0) => plates[i] && toggleHand(plates[i]);   // place / remove the hand on plate i
+window.__platepos = () => plates.map(p => [Math.round(p.position.x), Math.round(p.position.y), Math.round(p.position.z), p.userData.active]);
 window.__frameFigures = () => {
   const box = new THREE.Box3();
   for (const t of toggles) if (t.kind === "neon") box.expandByObject(t.mesh);
@@ -542,7 +554,7 @@ window.__probe = () => {
 (function loop(){ requestAnimationFrame(loop);
   const dt = Math.min(wclock.getDelta(), 0.1);
   if (camMode === "walk") updateWalk(dt); else controls.update();
-  if (ripples.length) updateRipples();
+  updateNeon();
   if (params.mode==="live") composer.render(); else renderer.render(scene, camera); })();
 </script>
 </body>
