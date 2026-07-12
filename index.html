@@ -263,6 +263,7 @@ function buildGUI() {
   const cam = gui.addFolder("Camera");
   cam.add(params,"cam",["orbit","walk"]).name("Mode (walk=FPS)").onChange(v => setCamMode(params.view==="canopy" ? v : "orbit"));
   cam.add({ f:()=>{ if(home){ camera.position.set(home.tgt.x, FLOOR_Y+1600, home.tgt.z + home.s*0.55); controls.target.copy(home.tgt);} } },"f").name("Stand under");
+  cam.add({ f:()=>gotoPlate(0) },"f").name("Go to touch plate");
   cam.add({ f:()=>{ if(home){ camera.position.copy(home.pos); controls.target.copy(home.tgt);} params.explode=0; layout(); updateInfo(); } },"f").name("Reset view");
 
   // 2) look & lighting
@@ -371,9 +372,11 @@ async function addTouchPlates() {
   const mat = new THREE.MeshStandardMaterial({ color:0x9aa3ac, metalness:0.95, roughness:0.32,
     emissive:new THREE.Color(0x39c9ff), emissiveIntensity:0.15 });   // brushed aluminium, faint "live" glow
   const handY = FLOOR_Y + 1200;                              // resting-hand height above the floor
+  const PILLAR_R = 490;                                      // measured pillar radius (mm) at the ring footprints
   for (const p of PILLARS) {
+    const zc = -p.y;                                         // pillar centre in world Z (ring footprint)
     const plate = new THREE.Mesh(new RoundedBoxGeometry(230,300,26,4,18), mat.clone());
-    plate.position.set(p.x, handY, -p.y + 120);              // proud of the pillar face, toward the visitor
+    plate.position.set(p.x, handY, zc + PILLAR_R + 13);      // flush on the +Z (street-facing) pillar surface
     plate.userData = { px:p.x, py:p.y, flash:0 };
     grp.add(plate); plates.push(plate);
   }
@@ -385,6 +388,14 @@ function onPointerDown(e) {
   raycaster.setFromCamera(new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1), camera);
   const hit = raycaster.intersectObjects(plates, false)[0];
   if (hit) triggerRipple(hit.object.userData.px, hit.object.userData.py, hit.object);
+}
+function gotoPlate(i=0) {                                     // stand in front of a hand-plate at eye height
+  const pl = plates[i]; if (!pl) return;
+  const t = pl.position.clone();
+  camera.position.set(t.x, FLOOR_Y + 1650, t.z + 2500);      // ~2.5 m back on the street side
+  camera.lookAt(t);
+  const e = new THREE.Euler().setFromQuaternion(camera.quaternion, "YXZ"); yaw = e.y; pitch = e.x;
+  if (camMode !== "walk") controls.target.copy(t);
 }
 
 // --- panel seams + break/power points (from panelize.py) ---
@@ -509,6 +520,7 @@ addEventListener("resize", () => {
 window.__cam = (px,py,pz, tx=0,ty=0,tz=0) => { camera.position.set(px,py,pz); controls.target.set(tx,ty,tz); controls.update(); };
 window.__walk = setCamMode;   // "walk" | "orbit"
 window.__touch = (i=0) => triggerRipple(PILLARS[i].x, PILLARS[i].y, plates[i]);   // fire the interaction ripple
+window.__platepos = () => plates.map(p => [Math.round(p.position.x), Math.round(p.position.y), Math.round(p.position.z)]);
 window.__frameFigures = () => {
   const box = new THREE.Box3();
   for (const t of toggles) if (t.kind === "neon") box.expandByObject(t.mesh);
