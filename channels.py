@@ -12,28 +12,27 @@ from collections import defaultdict
 OUT = Path(__file__).parent / "out"
 NAMES = {"#ff3ea5":"pink","#ffd23d":"yellow","#00e5ff":"cyan","#ff7a1a":"orange",
          "#a05bff":"purple","#39ff88":"green","#2b6bff":"blue","#f2f2f2":"rings"}
-WPM = 10.0   # W/m (confirm against strip datasheet)
+WPM = 10.0      # W/m (confirm against strip datasheet)
+VOLTS = 12.0    # 12 V neon-flex
+MAXRUN = 2500.0 # max continuous run per power feed at 12 V (mm) — voltage-drop limit
 
 bodies = json.load(open(OUT / "paths.json"))
-pj = json.load(open(OUT / "panels.json")); P = pj["panels"]; breaks = pj["breaks"]
 slen = lambda p: sum(math.dist(p[i], p[i+1]) for i in range(len(p)-1))
 
-figpts = defaultdict(list); ch = defaultdict(lambda: {"len": 0.0, "panels": set(), "feeds": 0})
+# continuous neon: feeds are set by run length / MAXRUN per body, NOT by panel seams
+figpts = defaultdict(list); ch = defaultdict(lambda: {"len": 0.0, "feeds": 0})
 for b in bodies:
-    figpts[b["color"]].append(b["points"]); ch[b["color"]]["len"] += slen(b["points"])
-for pi, (a, b, c, e) in enumerate(P):
-    for col, pts in figpts.items():
-        if any(a <= x <= c and b <= y <= e for pl in pts for x, y in pl): ch[col]["panels"].add(pi)
-for bp in breaks:
-    for col, pts in figpts.items():
-        if any(abs(bp[0]-x) < 2 and abs(bp[1]-y) < 2 for pl in pts for x, y in pl): ch[col]["feeds"] += 1
+    L = slen(b["points"]); figpts[b["color"]].append(b["points"])
+    ch[b["color"]]["len"] += L
+    ch[b["color"]]["feeds"] += max(1, math.ceil(L / MAXRUN))   # one continuous run per body
 
-out = []; print(f"{'ch':3}{'colour':8}{'LED m':>7}{'W':>6}{'A@24V':>7}{'panels':>8}{'feeds':>7}")
+out = []; print(f"{'ch':3}{'colour':8}{'LED m':>7}{'W':>6}{f'A@{VOLTS:.0f}V':>7}{'feeds':>7}{'A/feed':>8}")
 for i, (col, d) in enumerate(sorted(ch.items(), key=lambda x: -x[1]["len"]), 1):
-    w = d["len"]/1000*WPM
-    print(f"{i:<3}{NAMES.get(col,col):8}{d['len']/1000:7.1f}{w:6.0f}{w/24:7.1f}{len(d['panels']):8}{d['feeds']:7}")
+    w = d["len"]/1000*WPM; a = w/VOLTS; apf = a/max(1, d["feeds"])
+    print(f"{i:<3}{NAMES.get(col,col):8}{d['len']/1000:7.1f}{w:6.0f}{a:7.1f}{d['feeds']:7}{apf:8.1f}")
     out.append({"ch": i, "colour": NAMES.get(col, col), "hex": col, "led_m": round(d["len"]/1000, 1),
-                "watts": round(w), "amps": round(w/24, 1), "panels": sorted(d["panels"]), "feeds": d["feeds"]})
-tw = sum(c["watts"] for c in out)
-print(f"\n{len(out)} channels, {tw} W ({tw/24:.0f} A @ 24V) -> 1 MOSFET/channel on one ESP32")
+                "watts": round(w), "volts": VOLTS, "amps": round(a, 1), "feeds": d["feeds"],
+                "amps_per_feed": round(apf, 1)})
+tw = sum(c["watts"] for c in out); tf = sum(c["feeds"] for c in out)
+print(f"\n{len(out)} channels · {tw} W · {tw/VOLTS:.0f} A @ {VOLTS:.0f} V · {tf} power feeds (@{MAXRUN/1000:.1f} m) -> 1 MOSFET/channel on one ESP32")
 json.dump(out, open(OUT / "channels.json", "w"), indent=1)
