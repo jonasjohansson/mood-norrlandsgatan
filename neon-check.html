@@ -39,7 +39,7 @@
   <div class="row"><label>Neon width</label><input id="w" type="range" min="4" max="16" step="1" value="8"><span class="val" id="wv"></span></div>
   <div class="row"><label>Min bend R</label><input id="bend" type="range" min="30" max="250" step="5" value="120"><span class="val" id="bendv"></span></div>
   <div class="row"><label>Min gap</label><input id="gap" type="range" min="0" max="30" step="1" value="4"><span class="val" id="gapv"></span></div>
-  <div class="row"><label>Smooth</label><input id="smooth" type="range" min="0" max="160" step="2" value="0"><span class="val" id="smoothv"></span></div>
+  <div class="row"><label>Smooth</label><input id="smooth" type="range" min="0" max="300" step="5" value="0"><span class="val" id="smoothv"></span></div>
   <div class="row"><span class="chk"><input type="checkbox" id="tThick" checked><label for="tThick">Real thickness</label></span>
     <span class="chk"><input type="checkbox" id="tBend" checked><label for="tBend"><span class="sw" style="background:#38d0ff"></span>cuts</label></span></div>
   <div class="row"><span class="chk"><input type="checkbox" id="tGap" checked><label for="tGap"><span class="sw" style="background:#ff5d6c"></span>too close</label></span>
@@ -92,13 +92,15 @@ async function load(){
 }
 function smooth(pts, mm){
     if(mm<=0.5 || pts.length<4) return pts;
-    const sigPt = mm/mmPerPt, step = Math.max(0.5, sigPt/2);
-    const rs = resample(pts, step);
-    const closed = Math.hypot(rs[0][0]-rs[rs.length-1][0], rs[0][1]-rs[rs.length-1][1]) < step*1.5;
-    const win = Math.max(1, Math.round(sigPt/step)), n = rs.length, out = [];
+    const stepPt = Math.max(0.4, 6/mmPerPt);          // fixed ~6 mm output spacing -> stays round, never faceted
+    const rs = resample(pts, stepPt);
+    const n = rs.length;
+    const closed = Math.hypot(rs[0][0]-rs[n-1][0], rs[0][1]-rs[n-1][1]) < stepPt*1.5;
+    const win = Math.max(1, Math.round((mm/mmPerPt)/stepPt));   // gaussian window scales with the smoothing amount
+    const sig2 = 2*(win/2)*(win/2) + 1e-6, out = [];
     for(let i=0;i<n;i++){ let sx=0,sy=0,c=0;
-        for(let k=-win;k<=win;k++){ let j=i+k; j = closed ? (j+n)%n : Math.max(0,Math.min(n-1,j));
-            const w=Math.exp(-(k*k)/(win*win*0.5+1e-6)); sx+=rs[j][0]*w; sy+=rs[j][1]*w; c+=w; }
+        for(let k=-win;k<=win;k++){ let j=i+k; j = closed ? ((j%n)+n)%n : Math.max(0,Math.min(n-1,j));
+            const w=Math.exp(-(k*k)/sig2); sx+=rs[j][0]*w; sy+=rs[j][1]*w; c+=w; }
         out.push([sx/c, sy/c]); }
     return out;
 }
