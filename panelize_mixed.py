@@ -16,9 +16,13 @@ import json, math, bisect, sys
 from pathlib import Path
 from collections import defaultdict
 
+import os as _os
 HERE = Path(__file__).parent; OUT = HERE / "out"
-CS, BH, WMAX = 500.0, 1000.0, 4          # module, band height, max width (modules)
-ALPHA, BETA = 1.0, 10.0                  # panel-count vs crossing cost
+CS = float(_os.environ.get("CS", 500.0))
+BH = float(_os.environ.get("BH", 1000.0))
+WMAX = int(_os.environ.get("WMAX", 4))   # module, band height, max width (modules)
+# BETA=0 → seams don't dodge figures (continuous neon runs across joints): optimise boards for fewest sheets
+ALPHA, BETA = 1.0, float(_os.environ.get("BETA", 10.0))   # panel-count vs crossing cost
 MINP, STUB_PEN = 150.0, 30.0             # min usable LED piece; penalty for stub-making cuts
 VERT = "--vertical" in sys.argv          # rotate the whole band structure 90 deg
 SWAP = (lambda p: (p[1], p[0])) if VERT else (lambda p: (p[0], p[1]))
