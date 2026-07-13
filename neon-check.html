@@ -39,13 +39,13 @@
   <div class="row"><label>Neon width</label><input id="w" type="range" min="4" max="16" step="1" value="8"><span class="val" id="wv"></span></div>
   <div class="row"><label>Min bend R</label><input id="bend" type="range" min="30" max="250" step="5" value="120"><span class="val" id="bendv"></span></div>
   <div class="row"><label>Min gap</label><input id="gap" type="range" min="0" max="30" step="1" value="4"><span class="val" id="gapv"></span></div>
-  <div class="row"><label>Smooth</label><input id="smooth" type="range" min="0" max="300" step="5" value="0"><span class="val" id="smoothv"></span></div>
+  <div class="row"><label>Simplify</label><input id="simp" type="range" min="0" max="40" step="1" value="0"><span class="val" id="simpv"></span></div>
   <div class="row"><span class="chk"><input type="checkbox" id="tThick" checked><label for="tThick">Real thickness</label></span>
     <span class="chk"><input type="checkbox" id="tBend" checked><label for="tBend"><span class="sw" style="background:#38d0ff"></span>cuts</label></span></div>
   <div class="row"><span class="chk"><input type="checkbox" id="tGap" checked><label for="tGap"><span class="sw" style="background:#ff5d6c"></span>too close</label></span>
     <span class="chk"><input type="checkbox" id="tCore" checked><label for="tCore">centreline</label></span></div>
   <button id="reload">↻ Reload SVG (after saving in Illustrator)</button>
-  <button id="download">⇩ Download smoothed SVG</button>
+  <button id="download">⇩ Download simplified SVG</button>
   <div id="stats"></div>
 </div>
 <div id="hint">figures/composition.svg · scale from the two ring circles (4803 mm apart) · drag to pan · scroll to zoom</div>
@@ -57,7 +57,7 @@ let bodies = [], rings = [], mmPerPt = 1, bounds = null, viewBox = "0 0 1190 842
 let view = { x:0, y:0, s:1 }, fitted = null;
 
 const $ = id => document.getElementById(id);
-const S = { w:8, bend:120, gap:4, smooth:0, thick:true, bendOn:true, gapOn:true, core:true };
+const S = { w:8, bend:120, gap:4, simp:0, thick:true, bendOn:true, gapOn:true, core:true };
 function toHex(c){                                // "rgb(r,g,b)" -> #rrggbb (svgcheck matches on hex)
     const m = /rgb\((\d+),\s*(\d+),\s*(\d+)\)/.exec(c||"");
     if(!m) return (c && c[0]==="#") ? c : "#39ff88";
@@ -84,28 +84,66 @@ async function load(){
         if(!(L>0)) continue;
         const n = Math.max(2, Math.ceil(L/1.5)), pts=[];
         for(let i=0;i<=n;i++){ const q=p.getPointAtLength(L*i/n); pts.push([q.x,q.y]); }
-        bodies.push({ col:toHex(stroke(p)), pts, disp:pts });
+        const closed = Math.hypot(pts[0][0]-pts[n][0], pts[0][1]-pts[n][1]) < 2;
+        bodies.push({ col:toHex(stroke(p)), pts, closed, anchors:pts, disp:pts });
     }
     mmPerPt = (rings.length>=2) ? PILLAR_MM/Math.hypot(rings[0].x-rings[1].x, rings[0].y-rings[1].y) : 1;
     apply();            // smooth + bounds + analyse + render
     fit(); render();    // frame it on (re)load
 }
-function smooth(pts, mm){
-    if(mm<=0.5 || pts.length<4) return pts;
-    const stepPt = Math.max(0.4, 6/mmPerPt);          // fixed ~6 mm output spacing -> stays round, never faceted
-    const rs = resample(pts, stepPt);
-    const n = rs.length;
-    const closed = Math.hypot(rs[0][0]-rs[n-1][0], rs[0][1]-rs[n-1][1]) < stepPt*1.5;
-    const win = Math.max(1, Math.round((mm/mmPerPt)/stepPt));   // gaussian window scales with the smoothing amount
-    const sig2 = 2*(win/2)*(win/2) + 1e-6, out = [];
-    for(let i=0;i<n;i++){ let sx=0,sy=0,c=0;
-        for(let k=-win;k<=win;k++){ let j=i+k; j = closed ? ((j%n)+n)%n : Math.max(0,Math.min(n-1,j));
-            const w=Math.exp(-(k*k)/sig2); sx+=rs[j][0]*w; sy+=rs[j][1]*w; c+=w; }
-        out.push([sx/c, sy/c]); }
+// Ramer–Douglas–Peucker: drop points that stay within `eps` of the line (shape preserved, fewer anchors)
+function rdp(pts, eps){
+    if(pts.length<3) return pts.slice();
+    const keep = new Uint8Array(pts.length); keep[0]=keep[pts.length-1]=1;
+    const stack=[[0,pts.length-1]];
+    while(stack.length){ const [s,e]=stack.pop();
+        const [ax,ay]=pts[s], [bx,by]=pts[e], dx=bx-ax, dy=by-ay, L=Math.hypot(dx,dy)||1;
+        let dmax=0, idx=-1;
+        for(let i=s+1;i<e;i++){ const d=Math.abs((pts[i][0]-ax)*dy-(pts[i][1]-ay)*dx)/L; if(d>dmax){dmax=d;idx=i;} }
+        if(dmax>eps && idx>0){ keep[idx]=1; stack.push([s,idx],[idx,e]); }
+    }
+    const out=[]; for(let i=0;i<pts.length;i++) if(keep[i]) out.push(pts[i]);
     return out;
 }
-function apply(){       // recompute smoothed geometry + bounds, then analyse + render (keeps the view)
-    for(const b of bodies) b.disp = smooth(b.pts, S.smooth);
+// Centripetal Catmull-Rom (alpha=0.5): smooth interpolation through the anchors with NO overshoot/loops
+const _lerp=(a,b,u)=>[a[0]+(b[0]-a[0])*u, a[1]+(b[1]-a[1])*u];
+function _knots(p0,p1,p2,p3){ const A=0.5, tj=(ti,a,b)=>ti+Math.pow(Math.max(1e-6,Math.hypot(b[0]-a[0],b[1]-a[1])),A);
+    const t0=0,t1=tj(t0,p0,p1),t2=tj(t1,p1,p2),t3=tj(t2,p2,p3); return [t0,t1,t2,t3]; }
+function catmull(P, closed, seg){
+    if(P.length<3) return P.slice();
+    const pt=i=> closed ? P[((i%P.length)+P.length)%P.length] : P[Math.max(0,Math.min(P.length-1,i))];
+    const out=[], N = closed ? P.length : P.length-1;
+    for(let i=0;i<N;i++){ const p0=pt(i-1),p1=pt(i),p2=pt(i+1),p3=pt(i+2), [t0,t1,t2,t3]=_knots(p0,p1,p2,p3);
+        for(let s=0;s<seg;s++){ const t=t1+(t2-t1)*s/seg;
+            const A1=_lerp(p0,p1,(t-t0)/(t1-t0)), A2=_lerp(p1,p2,(t-t1)/(t2-t1)), A3=_lerp(p2,p3,(t-t2)/(t3-t2));
+            const B1=_lerp(A1,A2,(t-t0)/(t2-t0)), B2=_lerp(A2,A3,(t-t1)/(t3-t1));
+            out.push(_lerp(B1,B2,(t-t1)/(t2-t1))); } }
+    if(!closed) out.push(P[P.length-1]);
+    return out;
+}
+// kept anchors → smooth cubic-Bézier path (centripetal tangents → no overshoot, clean to re-edit in AI)
+function crBezier(P, closed){
+    if(P.length<2) return "";
+    const pt=i=> closed ? P[((i%P.length)+P.length)%P.length] : P[Math.max(0,Math.min(P.length-1,i))];
+    const N = closed ? P.length : P.length-1;
+    let d = `M ${P[0][0].toFixed(2)} ${P[0][1].toFixed(2)}`;
+    for(let i=0;i<N;i++){ const p0=pt(i-1),p1=pt(i),p2=pt(i+1),p3=pt(i+2), [t0,t1,t2,t3]=_knots(p0,p1,p2,p3);
+        const d1=t1-t0,d2=t2-t1,d3=t3-t2;
+        const m1=[d2*((p1[0]-p0[0])/d1-(p2[0]-p0[0])/(d1+d2)+(p2[0]-p1[0])/d2), d2*((p1[1]-p0[1])/d1-(p2[1]-p0[1])/(d1+d2)+(p2[1]-p1[1])/d2)];
+        const m2=[d2*((p2[0]-p1[0])/d2-(p3[0]-p1[0])/(d2+d3)+(p3[0]-p2[0])/d3), d2*((p2[1]-p1[1])/d2-(p3[1]-p1[1])/(d2+d3)+(p3[1]-p2[1])/d3)];
+        const c1=[p1[0]+m1[0]/3, p1[1]+m1[1]/3], c2=[p2[0]-m2[0]/3, p2[1]-m2[1]/3];
+        d += ` C ${c1[0].toFixed(2)} ${c1[1].toFixed(2)} ${c2[0].toFixed(2)} ${c2[1].toFixed(2)} ${p2[0].toFixed(2)} ${p2[1].toFixed(2)}`; }
+    return d + (closed ? " Z" : "");
+}
+let ptsBefore=0, ptsAfter=0;
+function apply(){       // simplify (RDP) + smooth (Catmull-Rom) + bounds, then analyse + render (keeps the view)
+    const epsPt = S.simp/mmPerPt;
+    ptsBefore=0; ptsAfter=0;
+    for(const b of bodies){
+        if(epsPt>0.01){ b.anchors = rdp(b.pts, epsPt); b.disp = catmull(b.anchors, b.closed, 8); }
+        else { b.anchors = b.pts; b.disp = b.pts; }        // no simplify → original geometry (no CR overshoot)
+        ptsBefore += b.pts.length; ptsAfter += b.anchors.length;
+    }
     let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
     for(const b of bodies) for(const p of b.disp){ if(p[0]<x0)x0=p[0]; if(p[0]>x1)x1=p[0]; if(p[1]<y0)y0=p[1]; if(p[1]>y1)y1=p[1]; }
     if(x1>x0) bounds = {x0,y0,x1,y1};
@@ -114,12 +152,12 @@ function apply(){       // recompute smoothed geometry + bounds, then analyse + 
 function exportSVG(){
     let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n`;
     for(const r of rings) s += `<circle cx="${r.x}" cy="${r.y}" r="${r.r}" fill="none" stroke="#f2f2f2"/>\n`;
-    for(const b of bodies){ const d = "M " + b.disp.map(p=>p[0].toFixed(2)+" "+p[1].toFixed(2)).join(" L ");
-        s += `<path d="${d}" fill="none" stroke="${b.col}" stroke-width="1"/>\n`; }
+    for(const b of bodies)                            // few anchors, smooth Béziers — clean to re-edit in Illustrator
+        s += `<path d="${crBezier(b.anchors, b.closed)}" fill="none" stroke="${b.col}" stroke-width="1"/>\n`;
     s += "</svg>\n";
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([s], {type:"image/svg+xml"}));
-    a.download = "composition_smoothed.svg"; a.click(); URL.revokeObjectURL(a.href);
+    a.download = "composition_simplified.svg"; a.click(); URL.revokeObjectURL(a.href);
 }
 function fit(){
     const W=cv.width, H=cv.height, m=60;
@@ -177,8 +215,10 @@ function analyse(){
     // cluster flagged points into regions (merge within one threshold)
     for(const i of flagged){ const p=[all[i].x,all[i].y];
         if(!closePts.some(m=>Math.hypot(m[0]-p[0],m[1]-p[1])<thrPt)) closePts.push(p); }
+    const red = ptsBefore ? Math.round(100*(1-ptsAfter/ptsBefore)) : 0;
     $("stats").innerHTML =
       `<div>scale <b>${mmPerPt.toFixed(2)} mm/pt</b> · ${bodies.length} runs</div>`+
+      `<div class="ok">● ${ptsAfter} anchors${S.simp>0?` (−${red}% of ${ptsBefore})`:``}</div>`+
       `<div style="color:#38d0ff">● ${tightPts.length} cut points (bends &lt; ${S.bend} mm)</div>`+
       `<div class="${closePts.length?'bad':'ok'}">● ${closePts.length} spots too close (&lt; ${(S.w+S.gap)} mm)</div>`;
 }
@@ -219,8 +259,8 @@ cv.addEventListener("wheel", e=>{ e.preventDefault(); const f=Math.exp(-e.deltaY
 function bindRange(id, key, unit){ const el=$(id), v=$(id+"v");
     const upd=()=>{ S[key]=+el.value; v.textContent=el.value+unit; analyse(); render(); }; el.addEventListener("input",upd); upd(); }
 bindRange("w","w"," mm"); bindRange("bend","bend"," mm"); bindRange("gap","gap"," mm");
-$("smooth").addEventListener("input", e=>{ S.smooth=+e.target.value; $("smoothv").textContent=e.target.value+" mm"; apply(); });
-$("smoothv").textContent = S.smooth+" mm";
+$("simp").addEventListener("input", e=>{ S.simp=+e.target.value; $("simpv").textContent=e.target.value+" mm"; apply(); });
+$("simpv").textContent = S.simp+" mm";
 $("profile").addEventListener("change", e=>{ $("w").value=e.target.value; $("w").dispatchEvent(new Event("input")); });
 for(const [id,key] of [["tThick","thick"],["tBend","bendOn"],["tGap","gapOn"],["tCore","core"]])
     $(id).addEventListener("change", e=>{ S[key]=e.target.checked; render(); });
