@@ -45,6 +45,12 @@
   <div class="row"><span class="chk"><input type="checkbox" id="tGap" checked><label for="tGap"><span class="sw" style="background:#ff5d6c"></span>too close</label></span>
     <span class="chk"><input type="checkbox" id="tCore" checked><label for="tCore">centreline</label></span></div>
   <button id="reload">↻ Reload SVG (after saving in Illustrator)</button>
+  <div class="row"><label>Save scale</label>
+    <select id="savescale">
+      <option value="10" selected>1:10 (fits Illustrator)</option>
+      <option value="1">1:1 (real mm)</option>
+      <option value="100">1:100</option>
+    </select></div>
   <button id="download">⇩ Download simplified SVG</button>
   <div id="stats"></div>
 </div>
@@ -150,14 +156,15 @@ function apply(){       // simplify (RDP) + smooth (Catmull-Rom) + bounds, then 
     analyse(); render();
 }
 function exportSVG(){
-    const k = mmPerPt;                                // design-points -> real millimetres
-    const sc = P => P.map(p=>[p[0]*k, p[1]*k]);       // scale a point list
+    const scale = +$("savescale").value;             // 1 / 10 / 100  (drawing units = real mm ÷ scale)
+    const k = mmPerPt / scale;                        // design-points -> file units (mm at the chosen scale)
+    const sc = P => P.map(p=>[p[0]*k, p[1]*k]);
     const vb = viewBox.split(/[\s,]+/).map(Number);
     const W = (vb[2]*k), H = (vb[3]*k);
     let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${W.toFixed(1)}mm" height="${H.toFixed(1)}mm" `
           + `viewBox="${(vb[0]*k).toFixed(1)} ${(vb[1]*k).toFixed(1)} ${W.toFixed(1)} ${H.toFixed(1)}">\n`;
-    // real 8x17 neon: stroke-width = profile width in mm, round caps/joins, in true-mm coordinates
-    const sw = S.w;
+    // neon stroke-width = profile width at the same scale, round caps/joins (registration recovers true size via the rings)
+    const sw = (S.w/scale).toFixed(scale>1?2:0);
     for(const r of rings)
         s += `<circle cx="${(r.x*k).toFixed(1)}" cy="${(r.y*k).toFixed(1)}" r="${(r.r*k).toFixed(1)}" `
            + `fill="none" stroke="#f2f2f2" stroke-width="${sw}"/>\n`;
@@ -167,7 +174,7 @@ function exportSVG(){
     s += "</svg>\n";
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([s], {type:"image/svg+xml"}));
-    a.download = "composition_simplified.svg"; a.click(); URL.revokeObjectURL(a.href);
+    a.download = `composition_simplified_1-${scale}.svg`; a.click(); URL.revokeObjectURL(a.href);
 }
 function fit(){
     const W=cv.width, H=cv.height, m=60;
