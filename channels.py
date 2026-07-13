@@ -13,8 +13,8 @@ OUT = Path(__file__).parent / "out"
 NAMES = {"#ff3ea5":"pink","#ffd23d":"yellow","#00e5ff":"cyan","#ff7a1a":"orange",
          "#a05bff":"purple","#39ff88":"green","#2b6bff":"blue","#f2f2f2":"rings"}
 WPM = 10.0      # W/m (confirm against strip datasheet)
-VOLTS = 12.0    # 12 V neon-flex
-MAXRUN = 2500.0 # max continuous run per power feed at 12 V (mm) — voltage-drop limit
+VOLTS = 24.0    # 24 V neon-flex
+MAXRUN = 5000.0 # max continuous run per power feed at 24 V (mm) — voltage-drop limit
 
 bodies = json.load(open(OUT / "paths.json"))
 slen = lambda p: sum(math.dist(p[i], p[i+1]) for i in range(len(p)-1))

@@ -467,7 +467,7 @@ async function addPanels() {
 async function addPowerFeeds() {
   const data = await fetch("out/paths.json?v="+Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
   if (!data) return;
-  const MAXRUN = 2500;                                   // max continuous run per feed (mm) — 12 V neon-flex
+  const MAXRUN = 5000;                                   // max continuous run per feed (mm) — 24 V neon-flex
   const feeds = [];
   for (const bd of data) {
     const P = bd.points; if (!P || P.length < 2) continue;
